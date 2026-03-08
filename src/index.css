@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+:root {
+  --prism-bg: #1e1e2e;
+  --prism-fg: #cdd6f4;
+  --prism-accent: #89b4fa;
+  --prism-border: #313244;
+  --prism-sidebar-bg: #181825;
+  --prism-heading: #89dceb;
+  --prism-code-bg: #11111b;
+  --prism-selection: #45475a;
+  --prism-muted: #6c7086;
+  --prism-syntax-keyword: #cba6f7;
+  --prism-syntax-string: #a6e3a1;
+  --prism-syntax-comment: #6c7086;
+  --prism-syntax-function: #89b4fa;
+  --prism-syntax-number: #fab387;
+  --prism-syntax-operator: #89dceb;
+  --prism-syntax-type: #f9e2af;
+  --prism-syntax-variable: #f38ba8;
+
+  --font-mono: "JetBrains Mono", monospace;
+  --font-sans: "Inter", system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: var(--prism-bg);
+  color: var(--prism-fg);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  overflow: hidden;
+  user-select: none;
+}
+
+main {
+  position: relative;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--prism-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--prism-muted);
+}
+
+/* highlight.js syntax highlighting - themed via CSS variables */
+.hljs { color: var(--prism-fg); background: var(--prism-code-bg); }
+.hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-deletion { color: var(--prism-syntax-keyword); }
+.hljs-string, .hljs-regexp, .hljs-addition, .hljs-template-tag, .hljs-template-variable { color: var(--prism-syntax-string); }
+.hljs-comment, .hljs-quote { color: var(--prism-syntax-comment); font-style: italic; }
+.hljs-title, .hljs-title\.function_, .hljs-section { color: var(--prism-syntax-function); }
+.hljs-number, .hljs-literal { color: var(--prism-syntax-number); }
+.hljs-operator, .hljs-punctuation { color: var(--prism-syntax-operator); }
+.hljs-type, .hljs-title\.class_, .hljs-title\.class_\.inherited__ { color: var(--prism-syntax-type); }
+.hljs-variable, .hljs-attr, .hljs-symbol, .hljs-bullet { color: var(--prism-syntax-variable); }
+.hljs-meta, .hljs-selector-id, .hljs-selector-class { color: var(--prism-accent); }
+.hljs-name, .hljs-tag { color: var(--prism-syntax-keyword); }
+.hljs-attribute { color: var(--prism-syntax-function); }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: bold; }
