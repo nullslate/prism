@@ -56,26 +56,9 @@ pub fn run() {
         .setup(|app| {
             use tauri::Manager;
 
-            // Position window as percentage of monitor
             if let Some(window) = app.get_webview_window("main") {
-                if let Some(monitor) = window.current_monitor().ok().flatten() {
-                    let mon_w = monitor.size().width as f64;
-                    let mon_h = monitor.size().height as f64;
-                    let scale = monitor.scale_factor();
-
-                    // 15% of monitor width, 56% of height
-                    let win_w = (mon_w * 0.15 / scale).round();
-                    let win_h = (mon_h * 0.56 / scale).round();
-
-                    // Right edge with 10px margin, 36px from top (below bar)
-                    let x = ((mon_w - win_w * scale - 10.0) / scale).round();
-                    let y = 36.0;
-
-                    let _ = window.set_size(tauri::LogicalSize::new(win_w, win_h));
-                    let _ = window.set_position(tauri::LogicalPosition::new(x, y));
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
+                let _ = window.show();
+                let _ = window.set_focus();
             }
 
             let config = app.state::<Mutex<PrismConfig>>();

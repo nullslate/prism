@@ -15,10 +15,11 @@
         "label": "main",
         "title": "Prism",
         "visible": false,
+        "width": 420,
+        "height": 800,
         "resizable": false,
         "decorations": false,
         "transparent": false,
-        "alwaysOnTop": true,
         "focus": true
       }
     ],
