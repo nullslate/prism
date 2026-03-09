@@ -2,36 +2,37 @@
 
 A lightweight markdown vault reader built with Tauri 2, React, and TypeScript. Designed for keyboard-driven workflows with vim-style navigation, fuzzy search, and a minimal always-on-top window.
 
-## Quick Start
+## Install
 
-### Prerequisites
+Download the latest release from the [GitHub Releases](https://github.com/thesandybridge/prism/releases) page.
 
-- [Rust](https://rustup.rs/) (stable)
-- [Node.js](https://nodejs.org/) (v18+)
-- A terminal emulator (default: alacritty)
-- A text editor (default: `$EDITOR` or nvim)
+| Platform | Format | Instructions |
+|----------|--------|-------------|
+| **macOS** | `.dmg` | Open the `.dmg` and drag Prism to Applications |
+| **Windows** | `.msi` | Run the installer |
+| **Linux (Debian/Ubuntu)** | `.deb` | `sudo dpkg -i Prism_x.x.x_amd64.deb` |
+| **Linux (other)** | `.AppImage` | `chmod +x Prism_x.x.x_amd64.AppImage && ./Prism_x.x.x_amd64.AppImage` |
 
-### Install
+> **Linux (Wayland + Nvidia):** If you see rendering issues, set `WEBKIT_DISABLE_DMABUF_RENDERER=1` before launching.
+
+### Build from Source
+
+Requires [Rust](https://rustup.rs/) (stable) and [Node.js](https://nodejs.org/) (v18+).
 
 ```sh
 git clone https://github.com/thesandybridge/prism.git
 cd prism
 npm install
-```
-
-### Development
-
-```sh
-npm run tauri dev
-```
-
-### Build
-
-```sh
 npm run tauri build
 ```
 
 The binary will be in `src-tauri/target/release/prism`.
+
+For development:
+
+```sh
+npm run tauri dev
+```
 
 ## Configuration
 
