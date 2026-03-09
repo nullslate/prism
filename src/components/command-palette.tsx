@@ -16,10 +16,16 @@ export function CommandPalette({ commands: cmds, onClose }: CommandPaletteProps)
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    const item = listRef.current?.children[selectedIndex] as HTMLElement | undefined;
+    item?.scrollIntoView({ block: "nearest" });
+  }, [selectedIndex]);
 
   const filtered = query
     ? cmds.filter((c) => c.label.toLowerCase().includes(query.toLowerCase()))
@@ -31,10 +37,10 @@ export function CommandPalette({ commands: cmds, onClose }: CommandPaletteProps)
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === "ArrowDown") {
+      if (e.key === "ArrowDown" || (e.key === "j" && e.ctrlKey)) {
         e.preventDefault();
         setSelectedIndex((i) => Math.min(i + 1, filtered.length - 1));
-      } else if (e.key === "ArrowUp") {
+      } else if (e.key === "ArrowUp" || (e.key === "k" && e.ctrlKey)) {
         e.preventDefault();
         setSelectedIndex((i) => Math.max(i - 1, 0));
       } else if (e.key === "Enter" && filtered[selectedIndex]) {
@@ -77,7 +83,7 @@ export function CommandPalette({ commands: cmds, onClose }: CommandPaletteProps)
             fontFamily: "var(--font-mono)",
           }}
         />
-        <ul className="max-h-72 overflow-y-auto">
+        <ul ref={listRef} className="max-h-72 overflow-y-auto">
           {filtered.map((cmd, i) => (
             <li
               key={cmd.id}

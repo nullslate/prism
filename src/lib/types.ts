@@ -10,6 +10,8 @@ export interface PrismConfig {
   editor: string;
   terminal: string;
   theme: string;
+  inbox: string;
+  hotkey: string;
   window: WindowConfig;
   favorites: Favorite[];
 }
@@ -54,4 +56,14 @@ export interface SearchResult {
   name: string;
   score: number;
   context: string | null;
+}
+
+export interface TagInfo {
+  tag: string;
+  count: number;
+}
+
+export interface TaggedFile {
+  path: string;
+  name: string;
 }

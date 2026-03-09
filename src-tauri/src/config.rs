@@ -11,6 +11,10 @@ pub struct PrismConfig {
     pub terminal: String,
     #[serde(default = "default_theme")]
     pub theme: String,
+    #[serde(default = "default_inbox")]
+    pub inbox: String,
+    #[serde(default = "default_hotkey")]
+    pub hotkey: String,
     #[serde(default)]
     pub window: WindowConfig,
     #[serde(default)]
@@ -56,6 +60,12 @@ fn default_position() -> String {
 fn default_always_on_top() -> bool {
     true
 }
+fn default_inbox() -> String {
+    "inbox.md".into()
+}
+fn default_hotkey() -> String {
+    "ctrl+space".into()
+}
 
 impl Default for WindowConfig {
     fn default() -> Self {
@@ -75,6 +85,8 @@ impl Default for PrismConfig {
             editor: default_editor(),
             terminal: default_terminal(),
             theme: default_theme(),
+            inbox: default_inbox(),
+            hotkey: default_hotkey(),
             window: WindowConfig::default(),
             favorites: vec![],
         }

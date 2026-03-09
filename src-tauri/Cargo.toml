@@ -28,4 +28,5 @@ shellexpand = "3"
 notify = "8"
 nucleo-matcher = "0.3"
 tokio = { version = "1", features = ["process"] }
+tauri-plugin-global-shortcut = "2"
 

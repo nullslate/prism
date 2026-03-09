@@ -9,7 +9,7 @@ interface StatusBarProps {
 export const StatusBar = memo(function StatusBar({ filePath, content }: StatusBarProps) {
   const { state } = useReader();
   const wordCount = content ? content.split(/\s+/).filter(Boolean).length : 0;
-  const mode = state.vimMode === "normal" ? undefined : state.vimMode.toUpperCase();
+  const mode = state.editorOpen ? "EDITOR" : "RENDER";
 
   return (
     <footer
@@ -22,14 +22,12 @@ export const StatusBar = memo(function StatusBar({ filePath, content }: StatusBa
       }}
     >
       <div className="flex items-center gap-2">
-        {mode && (
-          <span
-            className="px-1.5 text-xs font-bold uppercase"
-            style={{ color: "var(--prism-accent)" }}
-          >
-            {mode}
-          </span>
-        )}
+        <span
+          className="px-1.5 text-xs font-bold uppercase"
+          style={{ color: state.editorOpen ? "var(--prism-accent)" : "var(--prism-muted)" }}
+        >
+          {mode}
+        </span>
         <span>{filePath ?? "No file selected"}</span>
       </div>
       <div className="flex items-center gap-3">

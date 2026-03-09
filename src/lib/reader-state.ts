@@ -1,12 +1,9 @@
-export type VimMode = "normal" | "visual" | "visual-line" | "insert";
-export type Overlay = "none" | "file-finder" | "search" | "palette";
+export type Overlay = "none" | "file-finder" | "search" | "palette" | "new-file" | "tags" | "capture";
 
 export interface ReaderState {
   sidebarVisible: boolean;
   overlay: Overlay;
-  vimMode: VimMode;
-  cursorY: number;
-  selectionStartY: number;
+  editorOpen: boolean;
   keySequence: string;
 }
 
@@ -14,18 +11,14 @@ export type ReaderAction =
   | { type: "TOGGLE_SIDEBAR" }
   | { type: "SET_OVERLAY"; overlay: Overlay }
   | { type: "CLOSE_OVERLAY" }
-  | { type: "SET_VIM_MODE"; mode: VimMode; cursorY?: number; selectionStartY?: number }
-  | { type: "MOVE_CURSOR"; cursorY: number }
-  | { type: "EXIT_VIM_MODE" }
-  | { type: "SET_KEY_SEQUENCE"; keySequence: string }
-  | { type: "JUMP"; cursorY: number };
+  | { type: "OPEN_EDITOR" }
+  | { type: "CLOSE_EDITOR" }
+  | { type: "SET_KEY_SEQUENCE"; keySequence: string };
 
 export const initialReaderState: ReaderState = {
-  sidebarVisible: true,
+  sidebarVisible: false,
   overlay: "none",
-  vimMode: "normal",
-  cursorY: 0,
-  selectionStartY: 0,
+  editorOpen: false,
   keySequence: "",
 };
 
@@ -36,26 +29,13 @@ export function readerReducer(state: ReaderState, action: ReaderAction): ReaderS
     case "SET_OVERLAY":
       return { ...state, overlay: action.overlay };
     case "CLOSE_OVERLAY":
-      return {
-        ...state,
-        overlay: "none",
-        vimMode: state.vimMode !== "normal" ? "normal" : state.vimMode,
-      };
-    case "SET_VIM_MODE":
-      return {
-        ...state,
-        vimMode: action.mode,
-        cursorY: action.cursorY ?? state.cursorY,
-        selectionStartY: action.selectionStartY ?? state.selectionStartY,
-      };
-    case "MOVE_CURSOR":
-      return { ...state, cursorY: action.cursorY };
-    case "EXIT_VIM_MODE":
-      return { ...state, vimMode: "normal" };
+      return { ...state, overlay: "none" };
+    case "OPEN_EDITOR":
+      return { ...state, editorOpen: true, overlay: "none" };
+    case "CLOSE_EDITOR":
+      return { ...state, editorOpen: false };
     case "SET_KEY_SEQUENCE":
       return { ...state, keySequence: action.keySequence };
-    case "JUMP":
-      return { ...state, cursorY: action.cursorY };
     default:
       return state;
   }

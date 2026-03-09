@@ -21,15 +21,20 @@ export function useShortcuts(
     [dispatch],
   );
 
-  const isInputFocused = useCallback(() => {
+  const isEditorFocused = useCallback(() => {
     const el = document.activeElement;
-    return el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement;
+    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return true;
+    if (el instanceof HTMLElement && el.closest(".cm-editor")) return true;
+    return false;
   }, []);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       const maps = mapsRef.current;
       const mode = modeRef.current;
+
+      // Let CodeMirror and inputs handle all their own keys
+      if (isEditorFocused()) return;
 
       if (e.key === "Escape") {
         const handler = maps.global?.escape ?? maps[mode]?.escape;
@@ -41,8 +46,6 @@ export function useShortcuts(
         setKeySequence("");
         return;
       }
-
-      if (isInputFocused()) return;
 
       const parts: string[] = [];
       if (e.ctrlKey || e.metaKey) parts.push("ctrl");
@@ -56,7 +59,7 @@ export function useShortcuts(
       }
       const keyStr = parts.join("+");
 
-      // Check modifier shortcuts in global map first (ctrl+p, ctrl+b, etc.)
+      // Check modifier shortcuts in global map first, then mode map
       if (e.ctrlKey || e.metaKey || e.altKey) {
         const handler = maps.global?.[keyStr] ?? maps[mode]?.[keyStr];
         if (handler) {
@@ -80,25 +83,23 @@ export function useShortcuts(
         setKeySequence(seq);
 
         // Check sequence match in mode map, then global
-        const handler = maps[mode]?.[seq] ?? maps.global?.[seq];
-        if (handler) {
+        const seqHandler = maps[mode]?.[seq] ?? maps.global?.[seq];
+        if (seqHandler) {
           e.preventDefault();
-          handler();
+          seqHandler();
           sequenceRef.current = "";
           setKeySequence("");
           return;
         }
 
-        // Also check single-key
-        if (!sequenceRef.current.includes(" ")) {
-          const singleHandler = maps[mode]?.[pressedKey] ?? maps.global?.[pressedKey];
-          if (singleHandler) {
-            e.preventDefault();
-            singleHandler();
-            sequenceRef.current = "";
-            setKeySequence("");
-            return;
-          }
+        // Check single-key match (handles e.g. G after a partial g sequence)
+        const singleHandler = maps[mode]?.[pressedKey] ?? maps.global?.[pressedKey];
+        if (singleHandler) {
+          e.preventDefault();
+          singleHandler();
+          sequenceRef.current = "";
+          setKeySequence("");
+          return;
         }
 
         timeoutRef.current = setTimeout(() => {
@@ -110,5 +111,5 @@ export function useShortcuts(
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isInputFocused, setKeySequence]);
+  }, [isEditorFocused, setKeySequence]);
 }

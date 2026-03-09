@@ -5,10 +5,11 @@ interface FileTreeProps {
   nodes: FileNode[];
   currentPath: string | null;
   onSelect: (path: string) => void;
+  onTrash?: (path: string) => void;
   depth?: number;
 }
 
-export function FileTree({ nodes, currentPath, onSelect, depth = 0 }: FileTreeProps) {
+export function FileTree({ nodes, currentPath, onSelect, onTrash, depth = 0 }: FileTreeProps) {
   return (
     <ul className="list-none m-0 p-0">
       {nodes.map((node) => (
@@ -17,6 +18,7 @@ export function FileTree({ nodes, currentPath, onSelect, depth = 0 }: FileTreePr
           node={node}
           currentPath={currentPath}
           onSelect={onSelect}
+          onTrash={onTrash}
           depth={depth}
         />
       ))}
@@ -25,11 +27,12 @@ export function FileTree({ nodes, currentPath, onSelect, depth = 0 }: FileTreePr
 }
 
 const FileTreeNode = memo(function FileTreeNode({
-  node, currentPath, onSelect, depth,
+  node, currentPath, onSelect, onTrash, depth,
 }: {
   node: FileNode;
   currentPath: string | null;
   onSelect: (path: string) => void;
+  onTrash?: (path: string) => void;
   depth: number;
 }) {
   const [expanded, setExpanded] = useState(depth < 1);
@@ -48,7 +51,7 @@ const FileTreeNode = memo(function FileTreeNode({
           {node.name}/
         </button>
         {expanded && (
-          <FileTree nodes={node.children} currentPath={currentPath} onSelect={onSelect} depth={depth + 1} />
+          <FileTree nodes={node.children} currentPath={currentPath} onSelect={onSelect} onTrash={onTrash} depth={depth + 1} />
         )}
       </li>
     );
@@ -56,18 +59,37 @@ const FileTreeNode = memo(function FileTreeNode({
 
   return (
     <li>
-      <button
-        onClick={() => onSelect(node.path)}
-        className="w-full text-left py-1 px-3 text-sm truncate"
+      <div
+        className="group flex items-center"
         style={{
-          paddingLeft: `${indent + 22}px`,
-          fontFamily: "var(--font-mono)",
-          color: isActive ? "var(--prism-accent)" : "var(--prism-fg)",
           background: isActive ? "var(--prism-selection)" : "transparent",
         }}
       >
-        {node.name.replace(/\.md$/, "")}
-      </button>
+        <button
+          onClick={() => onSelect(node.path)}
+          className="flex-1 text-left py-1 px-3 text-sm truncate"
+          style={{
+            paddingLeft: `${indent + 22}px`,
+            fontFamily: "var(--font-mono)",
+            color: isActive ? "var(--prism-accent)" : "var(--prism-fg)",
+          }}
+        >
+          {node.name.replace(/\.md$/, "")}
+        </button>
+        {onTrash && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onTrash(node.path);
+            }}
+            className="opacity-0 group-hover:opacity-60 hover:!opacity-100 px-2 py-1 text-xs shrink-0"
+            style={{ color: "var(--prism-muted)", fontFamily: "var(--font-mono)" }}
+            title="Move to trash"
+          >
+            x
+          </button>
+        )}
+      </div>
     </li>
   );
 });

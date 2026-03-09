@@ -45,5 +45,10 @@ export function useVault() {
     return () => { unlisten.then((fn) => fn()); };
   }, [currentPath, refreshFiles]);
 
-  return { files, currentPath, content, loading, openFile, refreshFiles };
+  const closeFile = useCallback(() => {
+    setCurrentPath(null);
+    setContent("");
+  }, []);
+
+  return { files, currentPath, content, loading, openFile, closeFile, refreshFiles, setContent };
 }
