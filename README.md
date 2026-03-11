@@ -59,6 +59,32 @@ label = "Scratch"
 
 Open your config from within Prism via the command palette (`Ctrl+K` > "Open Config").
 
+### Keyboard Shortcuts
+
+All keyboard shortcuts are configurable. Add a `[shortcuts.global]` or `[shortcuts.render]` section to override defaults — only specify the keys you want to change:
+
+```toml
+[shortcuts.global]
+find-file = "ctrl+p"
+vault-search = "ctrl+shift+f"
+
+[shortcuts.render]
+quit = "ctrl+q"
+```
+
+Set a value to `""` to disable a shortcut.
+
+#### Per-Vault Overrides
+
+Create `.prism.toml` in your vault root to override shortcuts for that vault only:
+
+```toml
+[shortcuts.render]
+quit = "ctrl+q"
+```
+
+Merge order: built-in defaults < system config < vault overrides.
+
 ### Themes
 
 Three builtin themes: `catppuccin-mocha`, `gruvbox-dark`, `tokyo-night`.
@@ -71,16 +97,21 @@ Add up to 9 favorites in config. Access them with `1`-`9` in render mode.
 
 ## Keybindings
 
+All shortcuts are [configurable](#keyboard-shortcuts) via config.
+
 ### Global (always active)
 
 | Key | Action |
 |-----|--------|
-| `Ctrl+P` | Fuzzy file finder |
+| `Ctrl+F` | Fuzzy file finder |
 | `Ctrl+K` | Command palette |
 | `Ctrl+B` | Toggle sidebar |
 | `Ctrl+N` | New file |
 | `Ctrl+T` | Filter by tag |
 | `Ctrl+.` | Quick capture |
+| `Ctrl+G` | Link graph |
+| `Ctrl+S` | Search vault |
+| `Ctrl+Shift+T` | Cycle theme |
 | `Ctrl+Space` | Toggle window (global, configurable) |
 | `Escape` | Close overlay |
 
@@ -120,7 +151,7 @@ Add up to 9 favorites in config. Access them with `1`-`9` in render mode.
 
 ## Features
 
-### Fuzzy File Search (`Ctrl+P`)
+### Fuzzy File Search (`Ctrl+F`)
 
 Searches file names, paths, and content using nucleo-matcher. Results ranked by score with context preview.
 
@@ -157,6 +188,26 @@ Opens a minimal input overlay. Type a note and press `Enter` — it appends a ti
 ```
 
 Configure the target file with `inbox` in config (default: `inbox.md`). Creates the file if it doesn't exist.
+
+### Backlinks
+
+The sidebar shows all files that link to the currently open note via `[[wiki links]]`. Click a backlink to navigate to it.
+
+### Vault Search (`Ctrl+S`)
+
+Full-text search across all files in the vault. Results show file name, line number, and surrounding context.
+
+### Link Graph (`Ctrl+G`)
+
+Interactive text-based explorer showing connections between notes. Navigate with `j`/`k`, press `Enter` to open a linked note, `l` to explore a link's connections.
+
+### Daily Notes
+
+Create or open today's daily note from the command palette. Notes are stored as `daily/YYYY-MM-DD.md`.
+
+### Outline
+
+The sidebar shows a heading tree for the current file. Click a heading to scroll to it.
 
 ### Trash / Soft Delete
 
