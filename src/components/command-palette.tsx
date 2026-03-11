@@ -45,8 +45,8 @@ export function CommandPalette({ commands: cmds, onClose }: CommandPaletteProps)
         setSelectedIndex((i) => Math.max(i - 1, 0));
       } else if (e.key === "Enter" && filtered[selectedIndex]) {
         e.preventDefault();
-        filtered[selectedIndex].action();
         onClose();
+        filtered[selectedIndex].action();
       } else if (e.key === "Escape") {
         e.preventDefault();
         onClose();
@@ -96,8 +96,8 @@ export function CommandPalette({ commands: cmds, onClose }: CommandPaletteProps)
                 fontFamily: "var(--font-mono)",
               }}
               onClick={() => {
-                cmd.action();
                 onClose();
+                cmd.action();
               }}
               onMouseEnter={() => setSelectedIndex(i)}
             >
