@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { commands } from "@/lib/tauri";
 import type { GraphNode, GraphEdge } from "@/lib/types";
 
@@ -18,6 +18,12 @@ interface SimNode {
   vy: number;
 }
 
+interface Camera {
+  x: number;
+  y: number;
+  zoom: number;
+}
+
 function runSimulation(
   nodes: SimNode[],
   edges: GraphEdge[],
@@ -35,7 +41,6 @@ function runSimulation(
   const cy = height / 2;
 
   for (let iter = 0; iter < iterations; iter++) {
-    // Repulsion between all node pairs
     for (let i = 0; i < nodes.length; i++) {
       for (let j = i + 1; j < nodes.length; j++) {
         const a = nodes[i];
@@ -54,7 +59,6 @@ function runSimulation(
       }
     }
 
-    // Spring forces along edges
     const nodeMap = new Map(nodes.map((n) => [n.id, n]));
     for (const edge of edges) {
       const a = nodeMap.get(edge.source);
@@ -74,13 +78,11 @@ function runSimulation(
       b.vy -= fy;
     }
 
-    // Center gravity
     for (const node of nodes) {
       node.vx += (cx - node.x) * centerPull;
       node.vy += (cy - node.y) * centerPull;
     }
 
-    // Integrate
     for (const node of nodes) {
       node.vx *= damping;
       node.vy *= damping;
@@ -88,28 +90,13 @@ function runSimulation(
       node.y += node.vy;
     }
   }
+}
 
-  // Fit to viewport with padding
-  if (nodes.length === 0) return;
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  for (const n of nodes) {
-    if (n.x < minX) minX = n.x;
-    if (n.x > maxX) maxX = n.x;
-    if (n.y < minY) minY = n.y;
-    if (n.y > maxY) maxY = n.y;
-  }
-  const padding = 80;
-  const graphW = maxX - minX || 1;
-  const graphH = maxY - minY || 1;
-  const scaleX = (width - padding * 2) / graphW;
-  const scaleY = (height - padding * 2) / graphH;
-  const scale = Math.min(scaleX, scaleY, 1.5);
-  const offsetX = width / 2 - ((minX + maxX) / 2) * scale;
-  const offsetY = height / 2 - ((minY + maxY) / 2) * scale;
-  for (const n of nodes) {
-    n.x = n.x * scale + offsetX;
-    n.y = n.y * scale + offsetY;
-  }
+function screenToWorld(sx: number, sy: number, cam: Camera): { x: number; y: number } {
+  return {
+    x: (sx - cam.x) / cam.zoom,
+    y: (sy - cam.y) / cam.zoom,
+  };
 }
 
 function drawGraph(
@@ -118,14 +105,18 @@ function drawGraph(
   edges: GraphEdge[],
   currentPath: string | null,
   hoveredNode: SimNode | null,
+  dragNode: SimNode | null,
   width: number,
   height: number,
+  cam: Camera,
 ) {
   ctx.clearRect(0, 0, width, height);
+  ctx.save();
+  ctx.translate(cam.x, cam.y);
+  ctx.scale(cam.zoom, cam.zoom);
 
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
 
-  // Get CSS variable values
   const root = document.documentElement;
   const accent = getComputedStyle(root).getPropertyValue("--prism-accent").trim() || "#7c3aed";
   const fg = getComputedStyle(root).getPropertyValue("--prism-fg").trim() || "#e0e0e0";
@@ -134,7 +125,7 @@ function drawGraph(
 
   // Draw edges
   ctx.strokeStyle = border;
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 1 / cam.zoom;
   ctx.globalAlpha = 0.4;
   for (const edge of edges) {
     const a = nodeMap.get(edge.source);
@@ -152,13 +143,14 @@ function drawGraph(
   for (const node of nodes) {
     const isCurrent = node.path === currentPath;
     const isHovered = hoveredNode?.id === node.id;
+    const isDragged = dragNode?.id === node.id;
 
     ctx.beginPath();
-    ctx.arc(node.x, node.y, isHovered ? nodeRadius + 2 : nodeRadius, 0, Math.PI * 2);
+    ctx.arc(node.x, node.y, isHovered || isDragged ? nodeRadius + 2 : nodeRadius, 0, Math.PI * 2);
 
     if (isCurrent) {
       ctx.fillStyle = accent;
-    } else if (isHovered) {
+    } else if (isHovered || isDragged) {
       ctx.fillStyle = accent;
       ctx.globalAlpha = 0.7;
     } else {
@@ -167,14 +159,17 @@ function drawGraph(
     ctx.fill();
     ctx.globalAlpha = 1;
 
-    // Label
-    ctx.font = "11px sans-serif";
+    // Label - scale font so it stays readable
+    const fontSize = Math.max(11 / cam.zoom, 8);
+    ctx.font = `${fontSize}px sans-serif`;
     ctx.textAlign = "center";
     ctx.fillStyle = isCurrent ? accent : fg;
     ctx.globalAlpha = isCurrent || isHovered ? 1 : 0.7;
-    ctx.fillText(node.label, node.x, node.y + nodeRadius + 14);
+    ctx.fillText(node.label, node.x, node.y + nodeRadius + fontSize + 2);
     ctx.globalAlpha = 1;
   }
+
+  ctx.restore();
 }
 
 export function LinkGraph({ currentPath, onSelect, onClose }: LinkGraphProps) {
@@ -183,6 +178,10 @@ export function LinkGraph({ currentPath, onSelect, onClose }: LinkGraphProps) {
   const edgesRef = useRef<GraphEdge[]>([]);
   const hoveredRef = useRef<SimNode | null>(null);
   const sizeRef = useRef({ width: 0, height: 0 });
+  const camRef = useRef<Camera>({ x: 0, y: 0, zoom: 1 });
+  const dragRef = useRef<{ node: SimNode; offsetX: number; offsetY: number } | null>(null);
+  const panRef = useRef<{ startX: number; startY: number; camX: number; camY: number } | null>(null);
+  const [zoomLevel, setZoomLevel] = useState(100);
 
   const redraw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -195,10 +194,41 @@ export function LinkGraph({ currentPath, onSelect, onClose }: LinkGraphProps) {
       edgesRef.current,
       currentPath,
       hoveredRef.current,
+      dragRef.current?.node ?? null,
       sizeRef.current.width,
       sizeRef.current.height,
+      camRef.current,
     );
   }, [currentPath]);
+
+  const centerGraph = useCallback(() => {
+    const nodes = nodesRef.current;
+    if (nodes.length === 0) return;
+    const { width, height } = sizeRef.current;
+
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const n of nodes) {
+      if (n.x < minX) minX = n.x;
+      if (n.x > maxX) maxX = n.x;
+      if (n.y < minY) minY = n.y;
+      if (n.y > maxY) maxY = n.y;
+    }
+
+    const padding = 80;
+    const graphW = maxX - minX || 1;
+    const graphH = maxY - minY || 1;
+    const zoom = Math.min((width - padding * 2) / graphW, (height - padding * 2) / graphH, 2);
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+
+    camRef.current = {
+      x: width / 2 - cx * zoom,
+      y: height / 2 - cy * zoom,
+      zoom,
+    };
+    setZoomLevel(Math.round(zoom * 100));
+    redraw();
+  }, [redraw]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -236,23 +266,48 @@ export function LinkGraph({ currentPath, onSelect, onClose }: LinkGraphProps) {
       runSimulation(simNodes, graph.edges, w, h);
       nodesRef.current = simNodes;
       edgesRef.current = graph.edges;
-      redraw();
+      centerGraph();
     }).catch(console.error);
 
     const ro = new ResizeObserver(() => {
       resize();
-      if (nodesRef.current.length > 0) {
-        runSimulation(nodesRef.current, edgesRef.current, sizeRef.current.width, sizeRef.current.height);
-        redraw();
-      }
+      centerGraph();
     });
     ro.observe(parent);
 
     return () => ro.disconnect();
+  }, [centerGraph]);
+
+  // Zoom with scroll wheel
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const cam = camRef.current;
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+
+      const zoomFactor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+      const newZoom = Math.min(Math.max(cam.zoom * zoomFactor, 0.1), 10);
+
+      // Zoom toward cursor position
+      cam.x = mx - (mx - cam.x) * (newZoom / cam.zoom);
+      cam.y = my - (my - cam.y) * (newZoom / cam.zoom);
+      cam.zoom = newZoom;
+      setZoomLevel(Math.round(newZoom * 100));
+      redraw();
+    };
+
+    canvas.addEventListener("wheel", handleWheel, { passive: false });
+    return () => canvas.removeEventListener("wheel", handleWheel);
   }, [redraw]);
 
-  const findNodeAt = useCallback((x: number, y: number): SimNode | null => {
-    const hitRadius = 12;
+  const findNodeAt = useCallback((sx: number, sy: number): SimNode | null => {
+    const { x, y } = screenToWorld(sx, sy, camRef.current);
+    const hitRadius = 12 / camRef.current.zoom;
     for (const node of nodesRef.current) {
       const dx = node.x - x;
       const dy = node.y - y;
@@ -263,32 +318,79 @@ export function LinkGraph({ currentPath, onSelect, onClose }: LinkGraphProps) {
     return null;
   }, []);
 
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const sx = e.clientX - rect.left;
+    const sy = e.clientY - rect.top;
+    const node = findNodeAt(sx, sy);
+
+    if (node) {
+      const world = screenToWorld(sx, sy, camRef.current);
+      dragRef.current = { node, offsetX: node.x - world.x, offsetY: node.y - world.y };
+      canvas.style.cursor = "grabbing";
+    } else {
+      panRef.current = { startX: e.clientX, startY: e.clientY, camX: camRef.current.x, camY: camRef.current.y };
+      canvas.style.cursor = "grabbing";
+    }
+  }, [findNodeAt]);
+
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const node = findNodeAt(x, y);
+    const sx = e.clientX - rect.left;
+    const sy = e.clientY - rect.top;
+
+    if (dragRef.current) {
+      const world = screenToWorld(sx, sy, camRef.current);
+      dragRef.current.node.x = world.x + dragRef.current.offsetX;
+      dragRef.current.node.y = world.y + dragRef.current.offsetY;
+      redraw();
+      return;
+    }
+
+    if (panRef.current) {
+      camRef.current.x = panRef.current.camX + (e.clientX - panRef.current.startX);
+      camRef.current.y = panRef.current.camY + (e.clientY - panRef.current.startY);
+      redraw();
+      return;
+    }
+
+    const node = findNodeAt(sx, sy);
     if (node !== hoveredRef.current) {
       hoveredRef.current = node;
-      canvas.style.cursor = node ? "pointer" : "default";
+      canvas.style.cursor = node ? "pointer" : "grab";
       redraw();
     }
   }, [findNodeAt, redraw]);
 
-  const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handleMouseUp = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const node = findNodeAt(x, y);
-    if (node) {
-      onSelect(node.path);
-      onClose();
+
+    if (dragRef.current) {
+      // If barely moved, treat as click
+      const rect = canvas.getBoundingClientRect();
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+      const world = screenToWorld(sx, sy, camRef.current);
+      const dx = world.x + dragRef.current.offsetX - dragRef.current.node.x;
+      const dy = world.y + dragRef.current.offsetY - dragRef.current.node.y;
+      if (dx * dx + dy * dy < 4) {
+        onSelect(dragRef.current.node.path);
+        onClose();
+      }
+      dragRef.current = null;
+      canvas.style.cursor = "grab";
+      redraw();
+      return;
     }
-  }, [findNodeAt, onSelect, onClose]);
+
+    panRef.current = null;
+    canvas.style.cursor = "grab";
+  }, [onSelect, onClose, redraw]);
 
   return (
     <div
@@ -313,15 +415,25 @@ export function LinkGraph({ currentPath, onSelect, onClose }: LinkGraphProps) {
           }}
         >
           <span style={{ color: "var(--prism-accent)" }}>Link Graph</span>
-          <span style={{ color: "var(--prism-muted)", fontSize: "11px" }}>
-            Click node to open | Esc to close
-          </span>
+          <div className="flex items-center gap-4" style={{ fontSize: "11px", color: "var(--prism-muted)" }}>
+            <span>{zoomLevel}%</span>
+            <button
+              onClick={(e) => { e.stopPropagation(); centerGraph(); }}
+              className="px-2 py-0.5 rounded text-xs"
+              style={{ border: "1px solid var(--prism-border)", color: "var(--prism-fg)" }}
+            >
+              Fit
+            </button>
+            <span>Scroll to zoom | Drag to pan | Drag nodes to move</span>
+          </div>
         </div>
-        <div className="relative" style={{ height: "calc(100% - 37px)" }}>
+        <div className="relative" style={{ height: "calc(100% - 37px)", cursor: "grab" }}>
           <canvas
             ref={canvasRef}
+            onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
-            onClick={handleClick}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={() => { panRef.current = null; dragRef.current = null; }}
           />
         </div>
       </div>
