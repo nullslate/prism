@@ -57,14 +57,45 @@ pub fn run() {
         .setup(|app| {
             use tauri::Manager;
 
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
-
             let config = app.state::<Mutex<PrismConfig>>();
             let config = config.lock().unwrap();
             let vault_path = config.vault_path();
+
+            if let Some(window) = app.get_webview_window("main") {
+                // Apply window config
+                let win_cfg = &config.window;
+                let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize {
+                    width: win_cfg.width,
+                    height: win_cfg.height,
+                }));
+                let _ = window.set_always_on_top(win_cfg.always_on_top);
+
+                // Position window
+                if let Ok(monitor) = window.current_monitor() {
+                    if let Some(monitor) = monitor {
+                        let screen = monitor.size();
+                        let scale = monitor.scale_factor();
+                        let w = (win_cfg.width as f64 * scale) as i32;
+                        let h = (win_cfg.height as f64 * scale) as i32;
+                        let sw = screen.width as i32;
+                        let sh = screen.height as i32;
+                        let (x, y) = match win_cfg.position.as_str() {
+                            "top-left" => (0, 0),
+                            "top-right" => (sw - w, 0),
+                            "bottom-left" => (0, sh - h),
+                            "bottom-right" => (sw - w, sh - h),
+                            "center" => ((sw - w) / 2, (sh - h) / 2),
+                            _ => (sw - w, 0), // default top-right
+                        };
+                        let _ = window.set_position(tauri::Position::Physical(
+                            tauri::PhysicalPosition { x, y },
+                        ));
+                    }
+                }
+
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
 
             let config_path = PrismConfig::config_path();
             let handle = app.handle().clone();
