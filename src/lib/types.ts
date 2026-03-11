@@ -67,3 +67,32 @@ export interface TaggedFile {
   path: string;
   name: string;
 }
+
+export interface VaultSearchMatch {
+  path: string;
+  name: string;
+  line_number: number;
+  context: string;
+}
+
+export interface BacklinkResult {
+  path: string;
+  name: string;
+  context: string;
+}
+
+export interface GraphNode {
+  id: string;
+  label: string;
+  path: string;
+}
+
+export interface GraphEdge {
+  source: string;
+  target: string;
+}
+
+export interface LinkGraph {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}

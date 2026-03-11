@@ -109,3 +109,54 @@ pub fn fuzzy_search(
     results.truncate(20);
     Ok(results)
 }
+
+#[derive(Debug, Clone, Serialize)]
+pub struct VaultSearchMatch {
+    pub path: String,
+    pub name: String,
+    pub line_number: usize,
+    pub context: String,
+}
+
+#[tauri::command]
+pub fn vault_search(
+    query: String,
+    config: State<'_, Mutex<PrismConfig>>,
+) -> Result<Vec<VaultSearchMatch>, String> {
+    if query.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let config = config.lock().map_err(|e| e.to_string())?;
+    let vault = config.vault_path();
+
+    let mut files: Vec<(String, String)> = Vec::new();
+    collect_md_files(&vault, &vault, &mut files);
+
+    let query_lower = query.to_lowercase();
+    let mut results: Vec<VaultSearchMatch> = Vec::new();
+
+    for (path, content) in &files {
+        let name = Path::new(path)
+            .file_stem()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
+
+        for (i, line) in content.lines().enumerate() {
+            if line.to_lowercase().contains(&query_lower) {
+                results.push(VaultSearchMatch {
+                    path: path.clone(),
+                    name: name.clone(),
+                    line_number: i + 1,
+                    context: line.chars().take(120).collect(),
+                });
+                if results.len() >= 100 {
+                    return Ok(results);
+                }
+            }
+        }
+    }
+
+    Ok(results)
+}

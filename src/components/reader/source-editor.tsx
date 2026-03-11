@@ -107,6 +107,49 @@ const prismHighlight = HighlightStyle.define([
   { tag: tags.bracket, color: "var(--prism-muted)" },
 ]);
 
+// --- Image paste handler ---
+
+function imagePasteHandler() {
+  return EditorView.domEventHandlers({
+    paste(event, view) {
+      const items = event.clipboardData?.items;
+      if (!items) return false;
+
+      for (const item of items) {
+        if (item.type.startsWith("image/")) {
+          event.preventDefault();
+          const file = item.getAsFile();
+          if (!file) return true;
+
+          const ext = item.type.split("/")[1] === "jpeg" ? "jpg" : item.type.split("/")[1];
+          const timestamp = Date.now();
+          const filename = `paste-${timestamp}.${ext}`;
+
+          const reader = new FileReader();
+          reader.onload = () => {
+            const dataUrl = reader.result as string;
+            const base64 = dataUrl.split(",")[1];
+            commands
+              .saveImage(filename, base64)
+              .then((relPath) => {
+                const mdImage = `![](${relPath})`;
+                const cursor = view.state.selection.main.head;
+                view.dispatch({
+                  changes: { from: cursor, insert: mdImage },
+                  selection: { anchor: cursor + mdImage.length },
+                });
+              })
+              .catch((err) => console.log("Failed to save image:", err));
+          };
+          reader.readAsDataURL(file);
+          return true;
+        }
+      }
+      return false;
+    },
+  });
+}
+
 // --- Relative line numbers ---
 
 function relativeLineNumbers(lineNo: number, state: EditorState): string {
@@ -263,6 +306,7 @@ export function SourceEditor({ content, filePath, scrollLine, onSave, onExit }: 
         highlightActiveLine(),
         highlightActiveLineGutter(),
         yankFlashField,
+        imagePasteHandler(),
       ],
     });
 

@@ -165,6 +165,152 @@ pub fn append_to_inbox(
     writeln!(file, "- {text}").map_err(|e| format!("Failed to write to inbox: {e}"))
 }
 
+#[tauri::command]
+pub fn rename_file(
+    old_path: String,
+    new_path: String,
+    config: State<'_, Mutex<PrismConfig>>,
+) -> Result<String, String> {
+    let config = config.lock().map_err(|e| e.to_string())?;
+    let vault = config.vault_path();
+    let old_full = vault.join(&old_path);
+    let new_full = vault.join(&new_path);
+
+    if !old_full.exists() {
+        return Err(format!("File not found: {old_path}"));
+    }
+    if new_full.exists() {
+        return Err(format!("File already exists: {new_path}"));
+    }
+
+    // Create parent dirs for new location
+    if let Some(parent) = new_full.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create directories: {e}"))?;
+    }
+
+    fs::rename(&old_full, &new_full)
+        .map_err(|e| format!("Failed to rename file: {e}"))?;
+
+    // Update wiki links in all markdown files
+    let old_stem = old_full
+        .file_stem()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
+    let new_stem = new_full
+        .file_stem()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
+
+    if old_stem != new_stem {
+        update_wiki_links(&vault, &old_stem, &new_stem);
+    }
+
+    Ok(new_path)
+}
+
+fn update_wiki_links(dir: &Path, old_name: &str, new_name: &str) {
+    let Ok(entries) = fs::read_dir(dir) else { return };
+    for entry in entries.filter_map(|e| e.ok()) {
+        let path = entry.path();
+        let fname = entry.file_name().to_string_lossy().to_string();
+        if fname.starts_with('.') {
+            continue;
+        }
+        if path.is_dir() {
+            update_wiki_links(&path, old_name, new_name);
+        } else if path.extension().is_some_and(|ext| ext == "md") {
+            if let Ok(content) = fs::read_to_string(&path) {
+                // Replace [[old_name]] and [[old_name|display]]
+                let pattern_plain = format!("[[{}]]", old_name);
+                let pattern_alias_prefix = format!("[[{}|", old_name);
+                if content.contains(&pattern_plain) || content.contains(&pattern_alias_prefix) {
+                    let updated = content
+                        .replace(&pattern_plain, &format!("[[{}]]", new_name))
+                        .replace(&pattern_alias_prefix, &format!("[[{}|", new_name));
+                    let _ = fs::write(&path, updated);
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct BacklinkResult {
+    pub path: String,
+    pub name: String,
+    pub context: String,
+}
+
+fn scan_backlinks(
+    dir: &Path,
+    vault: &Path,
+    target_path: &str,
+    target_stem: &str,
+    results: &mut Vec<BacklinkResult>,
+) {
+    let Ok(entries) = fs::read_dir(dir) else { return };
+    for entry in entries.filter_map(|e| e.ok()) {
+        let path = entry.path();
+        let fname = entry.file_name().to_string_lossy().to_string();
+        if fname.starts_with('.') {
+            continue;
+        }
+        if path.is_dir() {
+            scan_backlinks(&path, vault, target_path, target_stem, results);
+        } else if path.extension().is_some_and(|ext| ext == "md") {
+            let rel = path
+                .strip_prefix(vault)
+                .unwrap_or(&path)
+                .to_string_lossy()
+                .to_string();
+            if rel == target_path {
+                continue;
+            }
+            if let Ok(content) = fs::read_to_string(&path) {
+                let pattern_plain = format!("[[{}]]", target_stem);
+                let pattern_alias = format!("[[{}|", target_stem);
+                let lower_plain = pattern_plain.to_lowercase();
+                let lower_alias = pattern_alias.to_lowercase();
+                for line in content.lines() {
+                    let lower_line = line.to_lowercase();
+                    if lower_line.contains(&lower_plain) || lower_line.contains(&lower_alias) {
+                        let file_name = fname.strip_suffix(".md").unwrap_or(&fname).to_string();
+                        results.push(BacklinkResult {
+                            path: rel,
+                            name: file_name,
+                            context: line.chars().take(120).collect(),
+                        });
+                        break;
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[tauri::command]
+pub fn get_backlinks(
+    path: String,
+    config: State<'_, Mutex<PrismConfig>>,
+) -> Result<Vec<BacklinkResult>, String> {
+    let config = config.lock().map_err(|e| e.to_string())?;
+    let vault = config.vault_path();
+
+    let target_stem = Path::new(&path)
+        .file_stem()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_lowercase();
+
+    let mut results = Vec::new();
+    scan_backlinks(&vault, &vault, &path, &target_stem, &mut results);
+    results.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(results)
+}
+
 /// Create a new file, creating parent directories as needed.
 /// Returns the final relative path used (may differ if a collision was resolved).
 #[tauri::command]
@@ -199,4 +345,29 @@ pub fn create_file(path: String, config: State<'_, Mutex<PrismConfig>>) -> Resul
     }
 
     Err("Too many files with the same name".to_string())
+}
+
+#[tauri::command]
+pub fn create_daily_note(config: State<'_, Mutex<PrismConfig>>) -> Result<String, String> {
+    let config = config.lock().map_err(|e| e.to_string())?;
+    let vault = config.vault_path();
+
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let rel_path = format!("daily/{}.md", today);
+    let full_path = vault.join(&rel_path);
+
+    if full_path.exists() {
+        return Ok(rel_path);
+    }
+
+    if let Some(parent) = full_path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create daily dir: {e}"))?;
+    }
+
+    let content = format!("# {}\n\n", today);
+    fs::write(&full_path, content)
+        .map_err(|e| format!("Failed to create daily note: {e}"))?;
+
+    Ok(rel_path)
 }

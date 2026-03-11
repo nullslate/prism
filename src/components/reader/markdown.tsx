@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkFrontmatter from "remark-frontmatter";
@@ -6,6 +6,51 @@ import remarkWikiLinks from "@/lib/remark-wiki-links";
 import rehypeHighlight from "rehype-highlight";
 import rehypeSourceLines from "@/lib/rehype-source-lines";
 import type { Components } from "react-markdown";
+import { commands } from "@/lib/tauri";
+
+function isVaultPath(src: string): boolean {
+  if (!src) return false;
+  if (src.startsWith("http://") || src.startsWith("https://") || src.startsWith("data:")) return false;
+  return true;
+}
+
+function VaultImage({ src, alt, ...props }: React.ImgHTMLAttributes<HTMLImageElement>) {
+  const [dataUrl, setDataUrl] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    if (!src || !isVaultPath(src)) return;
+    let cancelled = false;
+    commands.getImage(src).then((url) => {
+      if (!cancelled) setDataUrl(url);
+    }).catch(() => {
+      if (!cancelled) setError(true);
+    });
+    return () => { cancelled = true; };
+  }, [src]);
+
+  if (!src || !isVaultPath(src)) {
+    return <img src={src} alt={alt} className="max-w-full rounded my-2" {...props} />;
+  }
+
+  if (error) {
+    return (
+      <span className="inline-block px-2 py-1 text-xs rounded" style={{ background: "var(--prism-code-bg)", color: "var(--prism-muted)" }}>
+        Image not found: {src}
+      </span>
+    );
+  }
+
+  if (!dataUrl) {
+    return (
+      <span className="inline-block px-2 py-1 text-xs" style={{ color: "var(--prism-muted)" }}>
+        Loading image...
+      </span>
+    );
+  }
+
+  return <img src={dataUrl} alt={alt} className="max-w-full rounded my-2" {...props} />;
+}
 
 const REMARK_PLUGINS = [remarkGfm, remarkFrontmatter, remarkWikiLinks];
 const REHYPE_PLUGINS = [rehypeHighlight, rehypeSourceLines];
@@ -90,6 +135,9 @@ function buildComponents(onNavigate?: (target: string) => void): Components {
     ),
     td: ({ children, ...props }) => (
       <td className="px-3 py-1.5 border-b" style={{ borderColor: "var(--prism-border)" }} {...props}>{children}</td>
+    ),
+    img: ({ src, alt, ...props }) => (
+      <VaultImage src={src} alt={alt} {...props} />
     ),
   };
 }

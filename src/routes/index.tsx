@@ -6,14 +6,20 @@ import { ReaderProvider, useReader } from "@/components/reader-provider";
 import { StatusBar } from "@/components/status-bar";
 import { FileTree } from "@/components/sidebar/file-tree";
 import { Favorites } from "@/components/sidebar/favorites";
+import { Backlinks } from "@/components/sidebar/backlinks";
+import { Outline } from "@/components/sidebar/outline";
 import { MarkdownViewer } from "@/components/reader/markdown";
 import { SourceEditor } from "@/components/reader/source-editor";
 import { FileFinder } from "@/components/search/file-finder";
 import { InFileSearch } from "@/components/search/in-file";
+import { VaultSearch } from "@/components/search/vault-search";
 import { CommandPalette } from "@/components/command-palette";
 import { NewFileDialog } from "@/components/new-file-dialog";
+import { RenameDialog } from "@/components/rename-dialog";
 import { TagFilter } from "@/components/tag-filter";
 import { QuickCapture } from "@/components/quick-capture";
+import { LinkGraph } from "@/components/link-graph";
+import { useToast } from "@/components/toast";
 import { commands } from "@/lib/tauri";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
@@ -31,17 +37,41 @@ export const Route = createFileRoute("/")(
 function ReaderView() {
   const { files, currentPath, content, openFile, closeFile, refreshFiles, setContent } =
     useVault();
-  const { favorites, toggleFavorite } = usePrism();
+  const { config, favorites, toggleFavorite } = usePrism();
   const { state, dispatch, readerRef } = useReader();
+  const toast = useToast();
   const scrollLineRef = useRef(1);
   const [pendingTrash, setPendingTrash] = useState<string | null>(null);
   const pendingTrashTimer = useRef<ReturnType<typeof setTimeout>>(null);
+  const scrollSaveTimer = useRef<ReturnType<typeof setTimeout>>(null);
 
   useEffect(() => {
     return () => {
       if (pendingTrashTimer.current) clearTimeout(pendingTrashTimer.current);
+      if (scrollSaveTimer.current) clearTimeout(scrollSaveTimer.current);
     };
   }, []);
+
+  const saveScrollPosition = useCallback(() => {
+    const reader = readerRef.current;
+    if (!reader || !currentPath || state.editorOpen) return;
+    if (scrollSaveTimer.current) clearTimeout(scrollSaveTimer.current);
+    scrollSaveTimer.current = setTimeout(() => {
+      localStorage.setItem(`prism:scroll:${currentPath}`, String(reader.scrollTop));
+    }, 300);
+  }, [currentPath, readerRef, state.editorOpen]);
+
+  useEffect(() => {
+    if (!currentPath || !content || state.editorOpen) return;
+    const reader = readerRef.current;
+    if (!reader) return;
+    const saved = localStorage.getItem(`prism:scroll:${currentPath}`);
+    if (saved) {
+      requestAnimationFrame(() => {
+        reader.scrollTo({ top: Number(saved) });
+      });
+    }
+  }, [currentPath, content, readerRef, state.editorOpen]);
 
   useEffect(() => {
     const unlisten = listen("quick-capture", () => {
@@ -117,6 +147,7 @@ function ReaderView() {
     if (!currentPath) return;
     try {
       await commands.trashFile(currentPath);
+      localStorage.removeItem(`prism:scroll:${currentPath}`);
       closeFile();
       refreshFiles();
     } catch (e) {
@@ -127,6 +158,7 @@ function ReaderView() {
   const trashFile = useCallback(async (path: string) => {
     try {
       await commands.trashFile(path);
+      localStorage.removeItem(`prism:scroll:${path}`);
       if (currentPath === path) closeFile();
       refreshFiles();
     } catch (e) {
@@ -142,6 +174,29 @@ function ReaderView() {
       console.error("Failed to resolve wiki link:", e);
     }
   }, [openFile]);
+
+  const cycleTheme = useCallback(async () => {
+    if (!config) return;
+    try {
+      const themes = await commands.listThemes();
+      if (themes.length === 0) return;
+      const idx = themes.indexOf(config.theme);
+      const next = themes[(idx + 1) % themes.length];
+      await commands.setConfig({ ...config, theme: next });
+      toast.info(`Theme: ${next}`);
+    } catch (e) {
+      console.error("Failed to cycle theme:", e);
+    }
+  }, [config, toast]);
+
+  const renameCurrentFile = useCallback(
+    (newPath: string) => {
+      dispatch({ type: "CLOSE_OVERLAY" });
+      openFile(newPath);
+      refreshFiles();
+    },
+    [dispatch, openFile, refreshFiles],
+  );
 
   const currentFileName =
     currentPath?.split("/").pop()?.replace(/\.md$/, "") ?? "";
@@ -180,6 +235,13 @@ function ReaderView() {
         action: () => refreshFiles(),
       },
       {
+        id: "rename-file",
+        label: "Rename / Move File",
+        action: () => {
+          if (currentPath) dispatch({ type: "SET_OVERLAY", overlay: "rename" });
+        },
+      },
+      {
         id: "move-to-trash",
         label: "Move to Trash",
         shortcut: "dd",
@@ -207,8 +269,43 @@ function ReaderView() {
         shortcut: "Ctrl+.",
         action: () => dispatch({ type: "SET_OVERLAY", overlay: "capture" }),
       },
+      {
+        id: "link-graph",
+        label: "Link Graph",
+        shortcut: "Ctrl+G",
+        action: () => dispatch({ type: "SET_OVERLAY", overlay: "graph" }),
+      },
+      {
+        id: "vault-search",
+        label: "Search Vault",
+        shortcut: "Ctrl+Shift+F",
+        action: () => dispatch({ type: "SET_OVERLAY", overlay: "vault-search" }),
+      },
+      {
+        id: "switch-theme",
+        label: "Switch Theme",
+        shortcut: "Ctrl+Shift+T",
+        action: () => cycleTheme(),
+      },
+      {
+        id: "show-outline",
+        label: "Show Outline",
+        action: () => {
+          if (!state.sidebarVisible) dispatch({ type: "TOGGLE_SIDEBAR" });
+        },
+      },
+      {
+        id: "daily-note",
+        label: "Daily Note",
+        action: () => {
+          commands.createDailyNote().then((path) => {
+            openFile(path);
+            refreshFiles();
+          }).catch(console.error);
+        },
+      },
     ],
-    [currentPath, currentFileName, toggleFavorite, refreshFiles, dispatch, trashCurrentFile],
+    [currentPath, currentFileName, toggleFavorite, refreshFiles, dispatch, trashCurrentFile, cycleTheme, openFile],
   );
 
   const shortcutMaps: ShortcutMaps = useMemo(() => {
@@ -220,6 +317,9 @@ function ReaderView() {
       "ctrl+n": () => dispatch({ type: "SET_OVERLAY", overlay: "new-file" }),
       "ctrl+t": () => dispatch({ type: "SET_OVERLAY", overlay: "tags" }),
       "ctrl+.": () => dispatch({ type: "SET_OVERLAY", overlay: "capture" }),
+      "ctrl+g": () => dispatch({ type: "SET_OVERLAY", overlay: "graph" }),
+      "ctrl+shift+t": () => cycleTheme(),
+      "ctrl+shift+f": () => dispatch({ type: "SET_OVERLAY", overlay: "vault-search" }),
       escape: () => dispatch({ type: "CLOSE_OVERLAY" }),
     };
 
@@ -278,6 +378,7 @@ function ReaderView() {
     currentPath,
     pendingTrash,
     trashCurrentFile,
+    cycleTheme,
   ]);
 
   useShortcuts(shortcutMaps, state.editorOpen ? "editor" : "render", dispatch);
@@ -310,6 +411,8 @@ function ReaderView() {
               onSelect={openFile}
               onTrash={trashFile}
             />
+            <Backlinks currentPath={currentPath} onSelect={openFile} />
+            <Outline content={content} readerRef={readerRef} />
           </aside>
         )}
 
@@ -325,6 +428,7 @@ function ReaderView() {
           <main
             className="flex-1 overflow-y-auto py-6 pr-6 pl-16"
             ref={readerRef}
+            onScroll={saveScrollPosition}
           >
             {content ? (
               <MarkdownViewer content={content} onNavigate={navigateWikiLink} />
@@ -365,6 +469,13 @@ function ReaderView() {
           onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
         />
       )}
+      {state.overlay === "rename" && currentPath && (
+        <RenameDialog
+          currentPath={currentPath}
+          onRename={renameCurrentFile}
+          onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
+        />
+      )}
       {state.overlay === "tags" && (
         <TagFilter
           onSelect={(path) => {
@@ -376,6 +487,19 @@ function ReaderView() {
       )}
       {state.overlay === "capture" && (
         <QuickCapture
+          onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
+        />
+      )}
+      {state.overlay === "vault-search" && (
+        <VaultSearch
+          onSelect={openFile}
+          onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
+        />
+      )}
+      {state.overlay === "graph" && (
+        <LinkGraph
+          currentPath={currentPath}
+          onSelect={openFile}
           onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
         />
       )}
