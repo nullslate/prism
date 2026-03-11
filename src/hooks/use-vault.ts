@@ -4,7 +4,9 @@ import type { FileNode } from "@/lib/types";
 
 export function useVault() {
   const [files, setFiles] = useState<FileNode[]>([]);
-  const [currentPath, setCurrentPath] = useState<string | null>(null);
+  const [currentPath, setCurrentPath] = useState<string | null>(
+    () => localStorage.getItem("prism:lastFile"),
+  );
   const [content, setContent] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
@@ -20,6 +22,7 @@ export function useVault() {
   const openFile = useCallback(async (path: string) => {
     setLoading(true);
     setCurrentPath(path);
+    localStorage.setItem("prism:lastFile", path);
     try {
       const md = await commands.readFile(path);
       setContent(md);
@@ -33,6 +36,14 @@ export function useVault() {
 
   useEffect(() => {
     refreshFiles();
+    if (currentPath) {
+      commands.readFile(currentPath).then(setContent).catch(() => {
+        setCurrentPath(null);
+        setContent("");
+        localStorage.removeItem("prism:lastFile");
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshFiles]);
 
   useEffect(() => {
@@ -48,6 +59,7 @@ export function useVault() {
   const closeFile = useCallback(() => {
     setCurrentPath(null);
     setContent("");
+    localStorage.removeItem("prism:lastFile");
   }, []);
 
   return { files, currentPath, content, loading, openFile, closeFile, refreshFiles, setContent };

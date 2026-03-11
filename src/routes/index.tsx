@@ -16,6 +16,7 @@ import { TagFilter } from "@/components/tag-filter";
 import { QuickCapture } from "@/components/quick-capture";
 import { commands } from "@/lib/tauri";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export const Route = createFileRoute("/")(
@@ -41,6 +42,13 @@ function ReaderView() {
       if (pendingTrashTimer.current) clearTimeout(pendingTrashTimer.current);
     };
   }, []);
+
+  useEffect(() => {
+    const unlisten = listen("quick-capture", () => {
+      dispatch({ type: "SET_OVERLAY", overlay: "capture" });
+    });
+    return () => { unlisten.then((f) => f()); };
+  }, [dispatch]);
 
   const scrollReader = useCallback(
     (direction: "up" | "down", amount?: number) => {

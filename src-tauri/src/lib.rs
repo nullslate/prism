@@ -5,6 +5,7 @@ mod watcher;
 
 use config::PrismConfig;
 use std::sync::Mutex;
+use tauri::Emitter;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut};
 
 fn parse_hotkey(s: &str) -> Option<Shortcut> {
@@ -85,11 +86,12 @@ pub fn run() {
             if let Some(shortcut) = parse_hotkey(&hotkey_str) {
                 app.global_shortcut().on_shortcut(shortcut, move |app, _shortcut, _event| {
                     if let Some(window) = app.get_webview_window("main") {
-                        if window.is_visible().unwrap_or(false) {
+                        if window.is_visible().unwrap_or(false) && window.is_focused().unwrap_or(false) {
                             let _ = window.hide();
                         } else {
                             let _ = window.show();
                             let _ = window.set_focus();
+                            let _ = window.emit("quick-capture", ());
                         }
                     }
                 }).ok();
