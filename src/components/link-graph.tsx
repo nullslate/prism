@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { commands } from "@/lib/tauri";
 import type { GraphEdge } from "@/lib/types";
 
@@ -21,10 +21,12 @@ function labelFromPath(path: string): string {
 export function LinkGraph({ currentPath, onSelect, onClose }: LinkGraphProps) {
   const [focusPath, setFocusPath] = useState(currentPath);
   const [neighbors, setNeighbors] = useState<Neighbor[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const [history, setHistory] = useState<string[]>([]);
   const [stats, setStats] = useState({ nodes: 0, edges: 0 });
   const [loading, setLoading] = useState(true);
   const [allEdges, setAllEdges] = useState<GraphEdge[]>([]);
+  const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     commands.getLinkGraph().then((graph) => {
@@ -66,7 +68,16 @@ export function LinkGraph({ currentPath, onSelect, onClose }: LinkGraphProps) {
     }
     result.sort((a, b) => a.label.localeCompare(b.label));
     setNeighbors(result);
+    setSelectedIndex(0);
   }, [focusPath, allEdges]);
+
+  // Scroll selected item into view
+  useEffect(() => {
+    const container = listRef.current;
+    if (!container) return;
+    const items = container.querySelectorAll<HTMLElement>("[data-graph-item]");
+    items[selectedIndex]?.scrollIntoView({ block: "nearest" });
+  }, [selectedIndex]);
 
   const navigate = useCallback((path: string) => {
     if (focusPath) setHistory((h) => [...h, focusPath]);
@@ -87,9 +98,60 @@ export function LinkGraph({ currentPath, onSelect, onClose }: LinkGraphProps) {
     onClose();
   }, [onSelect, onClose]);
 
+  const allItems = neighbors;
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      let handled = true;
+      switch (e.key) {
+        case "j":
+        case "ArrowDown":
+          setSelectedIndex((i) => Math.min(i + 1, allItems.length - 1));
+          break;
+        case "k":
+        case "ArrowUp":
+          setSelectedIndex((i) => Math.max(i - 1, 0));
+          break;
+        case "l":
+        case "ArrowRight":
+          if (allItems[selectedIndex]) navigate(allItems[selectedIndex].path);
+          break;
+        case "h":
+        case "ArrowLeft":
+          if (history.length > 0) goBack();
+          break;
+        case "Enter":
+          if (allItems[selectedIndex]) openAndClose(allItems[selectedIndex].path);
+          break;
+        case "g":
+          setSelectedIndex(0);
+          break;
+        case "G":
+          setSelectedIndex(Math.max(allItems.length - 1, 0));
+          break;
+        case "Escape":
+          if (history.length > 0) goBack();
+          else onClose();
+          break;
+        default:
+          handled = false;
+      }
+      if (handled) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
+  }, [allItems, selectedIndex, navigate, goBack, openAndClose, onClose, history.length, focusPath]);
+
   const focusLabel = focusPath ? labelFromPath(focusPath) : "No file selected";
   const outgoing = neighbors.filter((n) => n.direction === "outgoing" || n.direction === "both");
   const incoming = neighbors.filter((n) => n.direction === "incoming" || n.direction === "both");
+
+  // Map flat selectedIndex to the right section
+  let flatIndex = 0;
 
   return (
     <div
@@ -111,31 +173,29 @@ export function LinkGraph({ currentPath, onSelect, onClose }: LinkGraphProps) {
           style={{ borderColor: "var(--prism-border)" }}
         >
           <div className="flex items-center gap-2 min-w-0">
-            {history.length > 0 && (
-              <button
-                onClick={goBack}
-                className="text-xs px-1.5 py-0.5 rounded shrink-0"
-                style={{ color: "var(--prism-accent)", border: "1px solid var(--prism-border)" }}
-              >
-                &larr;
-              </button>
-            )}
-            <button
-              onClick={() => focusPath && openAndClose(focusPath)}
-              className="text-sm font-medium truncate text-left"
+            <span
+              className="text-sm font-medium truncate"
               style={{ color: "var(--prism-accent)" }}
               title={focusPath ?? undefined}
             >
               {focusLabel}
-            </button>
+            </span>
           </div>
           <span className="text-xs shrink-0 ml-2" style={{ color: "var(--prism-muted)" }}>
             {loading ? "..." : `${stats.nodes}n ${stats.edges}e`}
           </span>
         </div>
 
+        {/* Vim hints */}
+        <div
+          className="px-3 py-1 text-xs border-b shrink-0"
+          style={{ color: "var(--prism-muted)", borderColor: "var(--prism-border)" }}
+        >
+          j/k nav | l explore | h back | enter open | esc close
+        </div>
+
         {/* Body */}
-        <div className="overflow-y-auto flex-1 min-h-0">
+        <div ref={listRef} className="overflow-y-auto flex-1 min-h-0">
           {!focusPath && (
             <div className="px-3 py-4 text-sm" style={{ color: "var(--prism-muted)" }}>
               Open a file to explore its links
@@ -156,14 +216,31 @@ export function LinkGraph({ currentPath, onSelect, onClose }: LinkGraphProps) {
               >
                 Links to ({outgoing.length})
               </div>
-              {outgoing.map((n) => (
-                <NeighborRow
-                  key={n.path}
-                  neighbor={n}
-                  onNavigate={navigate}
-                  onOpen={openAndClose}
-                />
-              ))}
+              {outgoing.map((n) => {
+                const idx = flatIndex++;
+                return (
+                  <div
+                    key={n.path}
+                    data-graph-item
+                    className="flex items-center px-3 py-1.5 text-sm cursor-pointer"
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      background: idx === selectedIndex ? "var(--prism-selection)" : "transparent",
+                      color: idx === selectedIndex ? "var(--prism-accent)" : "var(--prism-fg)",
+                    }}
+                    onClick={() => openAndClose(n.path)}
+                  >
+                    <span className="truncate flex-1 min-w-0" title={n.path}>
+                      {n.label}
+                    </span>
+                    {n.direction === "both" && (
+                      <span className="text-xs ml-2 shrink-0" style={{ color: "var(--prism-muted)" }}>
+                        mutual
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
 
@@ -175,54 +252,35 @@ export function LinkGraph({ currentPath, onSelect, onClose }: LinkGraphProps) {
               >
                 Linked from ({incoming.length})
               </div>
-              {incoming.map((n) => (
-                <NeighborRow
-                  key={n.path}
-                  neighbor={n}
-                  onNavigate={navigate}
-                  onOpen={openAndClose}
-                />
-              ))}
+              {incoming.map((n) => {
+                const idx = flatIndex++;
+                return (
+                  <div
+                    key={n.path}
+                    data-graph-item
+                    className="flex items-center px-3 py-1.5 text-sm cursor-pointer"
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      background: idx === selectedIndex ? "var(--prism-selection)" : "transparent",
+                      color: idx === selectedIndex ? "var(--prism-accent)" : "var(--prism-fg)",
+                    }}
+                    onClick={() => openAndClose(n.path)}
+                  >
+                    <span className="truncate flex-1 min-w-0" title={n.path}>
+                      {n.label}
+                    </span>
+                    {n.direction === "both" && (
+                      <span className="text-xs ml-2 shrink-0" style={{ color: "var(--prism-muted)" }}>
+                        mutual
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-function NeighborRow({
-  neighbor,
-  onNavigate,
-  onOpen,
-}: {
-  neighbor: Neighbor;
-  onNavigate: (path: string) => void;
-  onOpen: (path: string) => void;
-}) {
-  return (
-    <div
-      className="flex items-center px-3 py-1.5 text-sm group"
-      style={{ fontFamily: "var(--font-mono)" }}
-    >
-      <button
-        onClick={() => onOpen(neighbor.path)}
-        className="truncate text-left flex-1 min-w-0"
-        style={{ color: "var(--prism-fg)" }}
-        title={neighbor.path}
-        onMouseEnter={(e) => (e.currentTarget.style.color = "var(--prism-accent)")}
-        onMouseLeave={(e) => (e.currentTarget.style.color = "var(--prism-fg)")}
-      >
-        {neighbor.label}
-      </button>
-      <button
-        onClick={() => onNavigate(neighbor.path)}
-        className="text-xs px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 shrink-0 ml-2"
-        style={{ color: "var(--prism-muted)", border: "1px solid var(--prism-border)" }}
-        title="Explore links"
-      >
-        &rarr;
-      </button>
     </div>
   );
 }

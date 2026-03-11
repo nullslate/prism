@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { FileNode, PrismConfig, Favorite, Theme, SearchResult, TagInfo, TaggedFile, LinkGraph, BacklinkResult, VaultSearchMatch } from "./types";
+import type { FileNode, PrismConfig, ShortcutConfig, Favorite, Theme, SearchResult, TagInfo, TaggedFile, LinkGraph, BacklinkResult, VaultSearchMatch } from "./types";
 
 export const commands = {
   listFiles: () => invoke<FileNode[]>("list_files"),
@@ -18,6 +18,7 @@ export const commands = {
   fuzzySearch: (query: string) => invoke<SearchResult[]>("fuzzy_search", { query }),
   getConfig: () => invoke<PrismConfig>("get_config"),
   reloadConfig: () => invoke<PrismConfig>("reload_config"),
+  getShortcuts: () => invoke<ShortcutConfig>("get_shortcuts"),
   setConfig: (config: PrismConfig) => invoke<void>("set_config", { newConfig: config }),
   toggleFavorite: (path: string, label: string) => invoke<Favorite[]>("toggle_favorite", { path, label }),
   openInEditor: (path: string, line: number) => invoke<string>("open_in_editor", { path, line }),

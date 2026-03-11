@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
@@ -19,6 +20,92 @@ pub struct PrismConfig {
     pub window: WindowConfig,
     #[serde(default)]
     pub favorites: Vec<Favorite>,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "ShortcutConfig::is_empty")]
+    pub shortcuts: ShortcutConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ShortcutConfig {
+    #[serde(default)]
+    pub global: HashMap<String, String>,
+    #[serde(default)]
+    pub render: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct VaultConfig {
+    #[serde(default)]
+    pub shortcuts: ShortcutConfig,
+}
+
+impl ShortcutConfig {
+    pub fn defaults() -> Self {
+        let global = HashMap::from([
+            ("find-file".into(), "ctrl+f".into()),
+            ("toggle-sidebar".into(), "ctrl+b".into()),
+            ("command-palette".into(), "ctrl+k".into()),
+            ("new-file".into(), "ctrl+n".into()),
+            ("filter-tags".into(), "ctrl+t".into()),
+            ("quick-capture".into(), "ctrl+.".into()),
+            ("link-graph".into(), "ctrl+g".into()),
+            ("cycle-theme".into(), "ctrl+shift+t".into()),
+            ("vault-search".into(), "ctrl+s".into()),
+            ("close-overlay".into(), "escape".into()),
+        ]);
+        let render = HashMap::from([
+            ("page-down".into(), "ctrl+d".into()),
+            ("page-up".into(), "ctrl+u".into()),
+            ("quit".into(), "q".into()),
+            ("scroll-down".into(), "j".into()),
+            ("scroll-up".into(), "k".into()),
+            ("scroll-left".into(), "h".into()),
+            ("scroll-right".into(), "l".into()),
+            ("goto-top".into(), "g g".into()),
+            ("goto-bottom".into(), "G".into()),
+            ("open-editor".into(), "n".into()),
+            ("search-in-file".into(), "/".into()),
+            ("trash-file".into(), "d d".into()),
+            ("favorite-1".into(), "1".into()),
+            ("favorite-2".into(), "2".into()),
+            ("favorite-3".into(), "3".into()),
+            ("favorite-4".into(), "4".into()),
+            ("favorite-5".into(), "5".into()),
+            ("favorite-6".into(), "6".into()),
+            ("favorite-7".into(), "7".into()),
+            ("favorite-8".into(), "8".into()),
+            ("favorite-9".into(), "9".into()),
+        ]);
+        Self { global, render }
+    }
+
+    pub fn merged(defaults: &Self, system: &Self, vault: Option<&Self>) -> Self {
+        let mut global = defaults.global.clone();
+        for (k, v) in &system.global {
+            global.insert(k.clone(), v.clone());
+        }
+        if let Some(v) = vault {
+            for (k, val) in &v.global {
+                global.insert(k.clone(), val.clone());
+            }
+        }
+
+        let mut render = defaults.render.clone();
+        for (k, v) in &system.render {
+            render.insert(k.clone(), v.clone());
+        }
+        if let Some(v) = vault {
+            for (k, val) in &v.render {
+                render.insert(k.clone(), val.clone());
+            }
+        }
+
+        Self { global, render }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.global.is_empty() && self.render.is_empty()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -89,6 +176,7 @@ impl Default for PrismConfig {
             hotkey: default_hotkey(),
             window: WindowConfig::default(),
             favorites: vec![],
+            shortcuts: ShortcutConfig::default(),
         }
     }
 }
@@ -121,6 +209,25 @@ impl PrismConfig {
     pub fn vault_path(&self) -> PathBuf {
         let expanded = shellexpand::tilde(&self.vault);
         PathBuf::from(expanded.as_ref())
+    }
+
+    pub fn load_vault_config(&self) -> Option<VaultConfig> {
+        let path = self.vault_path().join(".prism.toml");
+        if !path.exists() {
+            return None;
+        }
+        let content = fs::read_to_string(&path).ok()?;
+        toml::from_str(&content).ok()
+    }
+
+    pub fn resolved_shortcuts(&self) -> ShortcutConfig {
+        let defaults = ShortcutConfig::defaults();
+        let vault = self.load_vault_config();
+        ShortcutConfig::merged(
+            &defaults,
+            &self.shortcuts,
+            vault.as_ref().map(|v| &v.shortcuts),
+        )
     }
 }
 

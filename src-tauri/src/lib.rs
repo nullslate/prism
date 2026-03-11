@@ -104,6 +104,7 @@ pub fn run() {
             commands::config::get_config,
             commands::config::set_config,
             commands::config::reload_config,
+            commands::config::get_shortcuts,
             commands::files::list_files,
             commands::files::read_file,
             commands::files::write_file,

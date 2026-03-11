@@ -37,7 +37,7 @@ export const Route = createFileRoute("/")(
 function ReaderView() {
   const { files, currentPath, content, openFile, closeFile, refreshFiles, setContent } =
     useVault();
-  const { config, favorites, toggleFavorite } = usePrism();
+  const { config, shortcuts, favorites, toggleFavorite } = usePrism();
   const { state, dispatch, readerRef } = useReader();
   const toast = useToast();
   const scrollLineRef = useRef(1);
@@ -201,12 +201,23 @@ function ReaderView() {
   const currentFileName =
     currentPath?.split("/").pop()?.replace(/\.md$/, "") ?? "";
 
+  const shortcutLabel = useCallback(
+    (actionId: string, scope: "global" | "render" = "global") => {
+      if (!shortcuts) return undefined;
+      const key = (scope === "global" ? shortcuts.global : shortcuts.render)[actionId];
+      if (!key) return undefined;
+      if (key.includes(" ") && !key.includes("+")) return key.replace(/\s/g, "");
+      return key.split("+").map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join("+");
+    },
+    [shortcuts],
+  );
+
   const paletteCommands = useMemo(
     () => [
       {
         id: "toggle-sidebar",
         label: "Toggle Sidebar",
-        shortcut: "Ctrl+B",
+        shortcut: shortcutLabel("toggle-sidebar"),
         action: () => dispatch({ type: "TOGGLE_SIDEBAR" }),
       },
       {
@@ -219,14 +230,14 @@ function ReaderView() {
       {
         id: "find-file",
         label: "Find File",
-        shortcut: "Ctrl+P",
+        shortcut: shortcutLabel("find-file"),
         action: () =>
           dispatch({ type: "SET_OVERLAY", overlay: "file-finder" }),
       },
       {
         id: "search-in-file",
         label: "Search in File",
-        shortcut: "/",
+        shortcut: shortcutLabel("search-in-file", "render"),
         action: () => dispatch({ type: "SET_OVERLAY", overlay: "search" }),
       },
       {
@@ -244,7 +255,7 @@ function ReaderView() {
       {
         id: "move-to-trash",
         label: "Move to Trash",
-        shortcut: "dd",
+        shortcut: shortcutLabel("trash-file", "render"),
         action: () => trashCurrentFile(),
       },
       {
@@ -255,7 +266,7 @@ function ReaderView() {
       {
         id: "filter-by-tag",
         label: "Filter by Tag",
-        shortcut: "Ctrl+T",
+        shortcut: shortcutLabel("filter-tags"),
         action: () => dispatch({ type: "SET_OVERLAY", overlay: "tags" }),
       },
       {
@@ -266,25 +277,25 @@ function ReaderView() {
       {
         id: "quick-capture",
         label: "Quick Capture",
-        shortcut: "Ctrl+.",
+        shortcut: shortcutLabel("quick-capture"),
         action: () => dispatch({ type: "SET_OVERLAY", overlay: "capture" }),
       },
       {
         id: "link-graph",
         label: "Link Graph",
-        shortcut: "Ctrl+G",
+        shortcut: shortcutLabel("link-graph"),
         action: () => dispatch({ type: "SET_OVERLAY", overlay: "graph" }),
       },
       {
         id: "vault-search",
         label: "Search Vault",
-        shortcut: "Ctrl+Shift+F",
+        shortcut: shortcutLabel("vault-search"),
         action: () => dispatch({ type: "SET_OVERLAY", overlay: "vault-search" }),
       },
       {
         id: "switch-theme",
         label: "Switch Theme",
-        shortcut: "Ctrl+Shift+T",
+        shortcut: shortcutLabel("cycle-theme"),
         action: () => cycleTheme(),
       },
       {
@@ -305,52 +316,48 @@ function ReaderView() {
         },
       },
     ],
-    [currentPath, currentFileName, toggleFavorite, refreshFiles, dispatch, trashCurrentFile, cycleTheme, openFile],
+    [currentPath, currentFileName, toggleFavorite, refreshFiles, dispatch, trashCurrentFile, cycleTheme, openFile, shortcutLabel, state.sidebarVisible],
   );
 
   const shortcutMaps: ShortcutMaps = useMemo(() => {
-    const global: Record<string, () => void> = {
-      "ctrl+p": () =>
-        dispatch({ type: "SET_OVERLAY", overlay: "file-finder" }),
-      "ctrl+b": () => dispatch({ type: "TOGGLE_SIDEBAR" }),
-      "ctrl+k": () => dispatch({ type: "SET_OVERLAY", overlay: "palette" }),
-      "ctrl+n": () => dispatch({ type: "SET_OVERLAY", overlay: "new-file" }),
-      "ctrl+t": () => dispatch({ type: "SET_OVERLAY", overlay: "tags" }),
-      "ctrl+.": () => dispatch({ type: "SET_OVERLAY", overlay: "capture" }),
-      "ctrl+g": () => dispatch({ type: "SET_OVERLAY", overlay: "graph" }),
-      "ctrl+shift+t": () => cycleTheme(),
-      "ctrl+shift+f": () => dispatch({ type: "SET_OVERLAY", overlay: "vault-search" }),
-      escape: () => dispatch({ type: "CLOSE_OVERLAY" }),
+    const globalActions: Record<string, () => void> = {
+      "find-file": () => dispatch({ type: "SET_OVERLAY", overlay: "file-finder" }),
+      "toggle-sidebar": () => dispatch({ type: "TOGGLE_SIDEBAR" }),
+      "command-palette": () => dispatch({ type: "SET_OVERLAY", overlay: "palette" }),
+      "new-file": () => dispatch({ type: "SET_OVERLAY", overlay: "new-file" }),
+      "filter-tags": () => dispatch({ type: "SET_OVERLAY", overlay: "tags" }),
+      "quick-capture": () => dispatch({ type: "SET_OVERLAY", overlay: "capture" }),
+      "link-graph": () => dispatch({ type: "SET_OVERLAY", overlay: "graph" }),
+      "cycle-theme": () => cycleTheme(),
+      "vault-search": () => dispatch({ type: "SET_OVERLAY", overlay: "vault-search" }),
+      "close-overlay": () => dispatch({ type: "CLOSE_OVERLAY" }),
     };
 
-    // Render mode: reading shortcuts only
-    const render: Record<string, () => void> = {
-      "ctrl+d": () => pageScroll("down"),
-      "ctrl+u": () => pageScroll("up"),
-      q: () => getCurrentWindow().close(),
-      j: () => scrollReader("down"),
-      k: () => scrollReader("up"),
-      h: () => scrollReader("up"),
-      l: () => scrollReader("down"),
-      "g g": () => {
+    const renderActions: Record<string, () => void> = {
+      "page-down": () => pageScroll("down"),
+      "page-up": () => pageScroll("up"),
+      quit: () => getCurrentWindow().close(),
+      "scroll-down": () => scrollReader("down"),
+      "scroll-up": () => scrollReader("up"),
+      "scroll-left": () => scrollReader("up"),
+      "scroll-right": () => scrollReader("down"),
+      "goto-top": () => {
         const reader = readerRef.current;
         if (reader) reader.scrollTo({ top: 0, behavior: "smooth" });
       },
-      G: () => {
+      "goto-bottom": () => {
         const reader = readerRef.current;
         if (reader) reader.scrollTo({ top: reader.scrollHeight, behavior: "smooth" });
       },
-      n: () => openEditor(),
-      "/": () => dispatch({ type: "SET_OVERLAY", overlay: "search" }),
-      "d d": () => {
+      "open-editor": () => openEditor(),
+      "search-in-file": () => dispatch({ type: "SET_OVERLAY", overlay: "search" }),
+      "trash-file": () => {
         if (!currentPath) return;
         if (pendingTrash === currentPath) {
-          // Second dd within timeout — confirm trash
           if (pendingTrashTimer.current) clearTimeout(pendingTrashTimer.current);
           setPendingTrash(null);
           trashCurrentFile();
         } else {
-          // First dd — set pending
           setPendingTrash(currentPath);
           if (pendingTrashTimer.current) clearTimeout(pendingTrashTimer.current);
           pendingTrashTimer.current = setTimeout(() => setPendingTrash(null), 2000);
@@ -358,16 +365,31 @@ function ReaderView() {
       },
       ...Object.fromEntries(
         Array.from({ length: 9 }, (_, i) => [
-          String(i + 1),
-          () => {
-            if (favorites[i]) openFile(favorites[i].path);
-          },
+          `favorite-${i + 1}`,
+          () => { if (favorites[i]) openFile(favorites[i].path); },
         ]),
       ),
     };
 
-    return { global, render };
+    const buildKeyMap = (
+      actions: Record<string, () => void>,
+      keyConfig: Record<string, string>,
+    ): Record<string, () => void> => {
+      const keyMap: Record<string, () => void> = {};
+      for (const [actionId, handler] of Object.entries(actions)) {
+        const key = keyConfig[actionId];
+        if (key) keyMap[key] = handler;
+      }
+      return keyMap;
+    };
+
+    const sc = shortcuts ?? { global: {}, render: {} };
+    return {
+      global: buildKeyMap(globalActions, sc.global),
+      render: buildKeyMap(renderActions, sc.render),
+    };
   }, [
+    shortcuts,
     scrollReader,
     pageScroll,
     favorites,

@@ -28,6 +28,11 @@ export interface Favorite {
   label: string;
 }
 
+export interface ShortcutConfig {
+  global: Record<string, string>;
+  render: Record<string, string>;
+}
+
 export interface ThemeColors {
   bg: string;
   fg: string;

@@ -31,6 +31,7 @@ pub fn start_watcher(
     }
 
     let config_file = config_path.to_path_buf();
+    let vault_config_file = vault_path.join(".prism.toml");
 
     std::thread::spawn(move || {
         while let Ok(result) = rx.recv() {
@@ -39,7 +40,7 @@ pub fn start_watcher(
                 match kind {
                     Modify(_) | Create(_) | Remove(_) => {
                         for path in &paths {
-                            if *path == config_file || path.starts_with(config_file.parent().unwrap_or(&PathBuf::new()).join("themes")) {
+                            if *path == config_file || *path == vault_config_file || path.starts_with(config_file.parent().unwrap_or(&PathBuf::new()).join("themes")) {
                                 let _ = app.emit("config-changed", ());
                             } else if path.extension().is_some_and(|ext| ext == "md") {
                                 let _ = app.emit(
