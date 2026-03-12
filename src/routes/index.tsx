@@ -18,6 +18,7 @@ import { NewFileDialog } from "@/components/new-file-dialog";
 import { RenameDialog } from "@/components/rename-dialog";
 import { TagFilter } from "@/components/tag-filter";
 import { QuickCapture } from "@/components/quick-capture";
+import { TemplatePickerDialog } from "@/components/template-picker";
 import { LinkGraph } from "@/components/link-graph";
 import { PluginErrorBoundary } from "@/components/plugin-panel";
 import { loadPluginBundle, type PluginUI } from "@/lib/plugin-loader";
@@ -46,6 +47,7 @@ function ReaderView() {
   const scrollLineRef = useRef(1);
   const [pluginUIs, setPluginUIs] = useState<Record<string, PluginUI>>({});
   const [pendingTrash, setPendingTrash] = useState<string | null>(null);
+  const [justCaptured, setJustCaptured] = useState(false);
   const pendingTrashTimer = useRef<ReturnType<typeof setTimeout>>(null);
   const scrollSaveTimer = useRef<ReturnType<typeof setTimeout>>(null);
 
@@ -76,6 +78,27 @@ function ReaderView() {
       });
     }
   }, [currentPath, content, readerRef, state.editorOpen]);
+
+  useEffect(() => {
+    if (!justCaptured || !content) return;
+    const reader = readerRef.current;
+    if (!reader) return;
+    // Wait for markdown to render, then scroll to bottom and mark last item
+    const frame = requestAnimationFrame(() => {
+      reader.scrollTo({ top: reader.scrollHeight, behavior: "smooth" });
+      // Find last list item and add indicator
+      const items = reader.querySelectorAll("li");
+      const last = items[items.length - 1];
+      if (last) {
+        last.setAttribute("data-just-captured", "true");
+      }
+      setTimeout(() => {
+        setJustCaptured(false);
+        if (last) last.removeAttribute("data-just-captured");
+      }, 3000);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [justCaptured, content, readerRef]);
 
   useEffect(() => {
     const unlisten = listen("quick-capture", () => {
@@ -161,6 +184,17 @@ function ReaderView() {
     [openFile, dispatch],
   );
 
+  const createFromTemplate = useCallback(
+    (path: string) => {
+      openFile(path).then(() => {
+        dispatch({ type: "CLOSE_OVERLAY" });
+        scrollLineRef.current = 1;
+        dispatch({ type: "OPEN_EDITOR" });
+      });
+    },
+    [openFile, dispatch],
+  );
+
   const trashCurrentFile = useCallback(async () => {
     if (!currentPath) return;
     try {
@@ -183,6 +217,12 @@ function ReaderView() {
       console.error("Failed to trash file:", e);
     }
   }, [currentPath, closeFile, refreshFiles]);
+
+  const handleCapture = useCallback(() => {
+    const inbox = config?.inbox ?? "inbox.md";
+    openFile(inbox);
+    setJustCaptured(true);
+  }, [config, openFile]);
 
   const navigateWikiLink = useCallback(async (target: string) => {
     try {
@@ -317,6 +357,12 @@ function ReaderView() {
         action: () => dispatch({ type: "SET_OVERLAY", overlay: "capture" }),
       },
       {
+        id: "new-from-template",
+        label: "New from Template",
+        shortcut: shortcutLabel("new-from-template"),
+        action: () => dispatch({ type: "SET_OVERLAY", overlay: "template" }),
+      },
+      {
         id: "link-graph",
         label: "Link Graph",
         shortcut: shortcutLabel("link-graph"),
@@ -393,6 +439,7 @@ function ReaderView() {
       "new-file": () => dispatch({ type: "SET_OVERLAY", overlay: "new-file" }),
       "filter-tags": () => dispatch({ type: "SET_OVERLAY", overlay: "tags" }),
       "quick-capture": () => dispatch({ type: "SET_OVERLAY", overlay: "capture" }),
+      "new-from-template": () => dispatch({ type: "SET_OVERLAY", overlay: "template" }),
       "link-graph": () => dispatch({ type: "SET_OVERLAY", overlay: "graph" }),
       "cycle-theme": () => cycleTheme(),
       "vault-search": () => dispatch({ type: "SET_OVERLAY", overlay: "vault-search" }),
@@ -584,6 +631,13 @@ function ReaderView() {
       )}
       {state.overlay === "capture" && (
         <QuickCapture
+          onCapture={handleCapture}
+          onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
+        />
+      )}
+      {state.overlay === "template" && (
+        <TemplatePickerDialog
+          onCreate={createFromTemplate}
           onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
         />
       )}
