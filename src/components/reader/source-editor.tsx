@@ -196,7 +196,7 @@ function imagePasteHandler() {
                   selection: { anchor: cursor + mdImage.length },
                 });
               })
-              .catch((err) => console.log("Failed to save image:", err));
+              .catch((err) => console.error("Failed to save image:", err));
           };
           reader.readAsDataURL(file);
           return true;

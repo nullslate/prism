@@ -1,8 +1,8 @@
 [package]
 name = "prism"
 version = "0.5.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "A keyboard-driven markdown vault reader"
+authors = ["thesandybridge"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

@@ -57,16 +57,17 @@ npm run tauri dev
 | **Wiki links** | `[[note]]`, `[[path/note]]`, `[[note\|display text]]`, `[[note#heading]]` with autocomplete |
 | **Tags** | Extracted from frontmatter and inline `#tags`, filterable (`Ctrl+T`) |
 | **Quick capture** | Append timestamped bullets to your inbox (`Ctrl+.`) |
-| **Backlinks** | Sidebar shows all files linking to the current note |
 | **Vault search** | Full-text search with line-number context (`Ctrl+S`) |
 | **Link graph** | Text-based interactive graph explorer (`Ctrl+G`) |
 | **Daily notes** | Create/open today's note from the command palette |
 | **Templates** | Create notes from templates with `{{date}}`, `{{title}}` variable expansion |
-| **Outline** | Heading tree in sidebar, click to jump |
+| **File browser** | Full-screen keyboard-driven file tree with j/k nav, expand/collapse folders |
 | **Vim keybindings** | `j/k` scroll, `gg/G` top/bottom, `/` search, `n` open editor |
+| **Todos** | Toggle, create, and wrap todos with vim-style shortcuts in editor |
+| **Transclusion** | Hover `[[wiki links]]` to preview the target note inline |
 | **Editor handoff** | Press `n` to open in your `$EDITOR`, auto-reload on return |
 | **Plugins** | Lua scripting + React UI extensions |
-| **Themes** | 3 built-in (catppuccin-mocha, gruvbox-dark, tokyo-night) + custom TOML themes |
+| **Themes** | 14 built-in themes (dark + light) with live preview picker + custom TOML themes |
 | **Global hotkey** | Toggle window from any app (`Ctrl+Space`, configurable) |
 | **Command palette** | `Ctrl+K` for everything |
 
@@ -146,7 +147,7 @@ Then set `theme = "{name}"` in config.
 | `Ctrl+.` | Quick capture |
 | `Ctrl+G` | Link graph |
 | `Ctrl+S` | Search vault |
-| `Ctrl+Shift+T` | Cycle theme |
+| `Ctrl+Shift+T` | Theme picker |
 | `Ctrl+Space` | Toggle window (global) |
 | `Escape` | Close overlay |
 
@@ -170,6 +171,23 @@ Then set `theme = "{name}"` in config.
 </details>
 
 <details>
+<summary><strong>File browser</strong> (sidebar)</summary>
+
+| Key | Action |
+|-----|--------|
+| `j` / `k` | Move cursor down / up |
+| `o` / `Enter` | Open file or toggle folder |
+| `h` | Collapse folder or jump to parent |
+| `l` | Expand folder |
+| `Space` | Toggle folder |
+| `g` / `G` | Jump to top / bottom |
+| `dd` | Trash file (press twice) |
+| `R` | Rename file |
+| `q` / `Escape` | Close browser |
+
+</details>
+
+<details>
 <summary><strong>Editor mode</strong> (CodeMirror + Vim)</summary>
 
 | Key | Action |
@@ -179,6 +197,9 @@ Then set `theme = "{name}"` in config.
 | `:wq` | Save and exit |
 | `Space y` | Yank selection |
 | `Space yy` | Yank line |
+| `Space tt` | Toggle todo checkbox |
+| `Space tn` | Insert new todo |
+| `Space ta` | Wrap line as todo |
 | `[[` | Wiki link autocomplete |
 
 </details>
