@@ -231,6 +231,34 @@ function ReaderView() {
     setJustCaptured(true);
   }, [config, openFile]);
 
+  const toggleNearestTodo = useCallback(async () => {
+    if (!currentPath || !content) return;
+    const reader = readerRef.current;
+    if (!reader) return;
+    // Find task list items with source line annotations
+    const todoItems = reader.querySelectorAll<HTMLElement>(".task-list-item[data-source-line]");
+    if (todoItems.length === 0) return;
+    const viewportMid = reader.scrollTop + reader.clientHeight / 2;
+    let nearest: HTMLElement | null = null;
+    let nearestDist = Infinity;
+    for (const item of todoItems) {
+      const d = Math.abs(item.offsetTop - viewportMid);
+      if (d < nearestDist) {
+        nearestDist = d;
+        nearest = item;
+      }
+    }
+    if (!nearest) return;
+    const sourceLine = Number(nearest.dataset.sourceLine);
+    if (!sourceLine) return;
+    try {
+      const newContent = await commands.toggleTodo(currentPath, sourceLine);
+      setContent(newContent);
+    } catch (e) {
+      console.error("Failed to toggle todo:", e);
+    }
+  }, [currentPath, content, readerRef, setContent]);
+
   const navigateWikiLink = useCallback(async (target: string) => {
     try {
       const resolved = await commands.resolveWikiLink(target);
@@ -471,6 +499,7 @@ function ReaderView() {
         if (reader) reader.scrollTo({ top: reader.scrollHeight, behavior: "smooth" });
       },
       "open-editor": () => openEditor(),
+      "toggle-todo": () => toggleNearestTodo(),
       "search-in-file": () => dispatch({ type: "SET_OVERLAY", overlay: "search" }),
       "trash-file": () => {
         if (!currentPath) return;
@@ -521,6 +550,7 @@ function ReaderView() {
     currentPath,
     pendingTrash,
     trashCurrentFile,
+    toggleNearestTodo,
     cycleTheme,
     setVault,
   ]);

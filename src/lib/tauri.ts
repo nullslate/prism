@@ -16,6 +16,7 @@ export const commands = {
   listTemplates: () => invoke<TemplateMeta[]>("list_templates"),
   createFromTemplate: (templateName: string, destPath: string) => invoke<string>("create_from_template", { templateName, destPath }),
   getFileHeadings: (path: string) => invoke<HeadingInfo[]>("get_file_headings", { path }),
+  toggleTodo: (path: string, line: number) => invoke<string>("toggle_todo", { path, line }),
   listTags: () => invoke<TagInfo[]>("list_tags"),
   filesForTag: (tag: string) => invoke<TaggedFile[]>("files_for_tag", { tag }),
   fuzzySearch: (query: string) => invoke<SearchResult[]>("fuzzy_search", { query }),

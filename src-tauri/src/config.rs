@@ -108,6 +108,7 @@ impl ShortcutConfig {
             ("open-editor".into(), "n".into()),
             ("search-in-file".into(), "/".into()),
             ("trash-file".into(), "d d".into()),
+            ("toggle-todo".into(), "t t".into()),
             ("favorite-1".into(), "1".into()),
             ("favorite-2".into(), "2".into()),
             ("favorite-3".into(), "3".into()),

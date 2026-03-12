@@ -79,6 +79,61 @@ function ensureVimConfig() {
     flashView(view, line.from, line.to);
   });
   Vim.mapCommand("<Space>yy", "action", "clipboard-yank-line", {}, { context: "normal" });
+
+  // <Space>tt in normal — toggle checkbox on current line
+  Vim.defineAction("todo-toggle", (cm: any) => {
+    const view = cm.cm6 as EditorView;
+    const head = view.state.selection.main.head;
+    const line = view.state.doc.lineAt(head);
+    const text = line.text;
+    if (text.includes("- [ ] ")) {
+      view.dispatch({ changes: { from: line.from, to: line.to, insert: text.replace("- [ ] ", "- [x] ") } });
+    } else if (text.includes("- [x] ")) {
+      view.dispatch({ changes: { from: line.from, to: line.to, insert: text.replace("- [x] ", "- [ ] ") } });
+    } else {
+      // Convert plain list item or line to todo
+      const match = text.match(/^(\s*)(- )?(.*)$/);
+      if (match) {
+        const indent = match[1];
+        const content = match[3];
+        view.dispatch({ changes: { from: line.from, to: line.to, insert: `${indent}- [ ] ${content}` } });
+      }
+    }
+  });
+  Vim.mapCommand("<Space>tt", "action", "todo-toggle", {}, { context: "normal" });
+
+  // <Space>tn in normal — insert new todo below and enter insert mode
+  Vim.defineAction("todo-new", (cm: any) => {
+    const view = cm.cm6 as EditorView;
+    const head = view.state.selection.main.head;
+    const line = view.state.doc.lineAt(head);
+    const indent = line.text.match(/^(\s*)/)?.[1] ?? "";
+    const newTodo = `\n${indent}- [ ] `;
+    view.dispatch({
+      changes: { from: line.to, insert: newTodo },
+      selection: { anchor: line.to + newTodo.length },
+    });
+    // Enter insert mode
+    Vim.handleKey(cm, "i", "mapping");
+  });
+  Vim.mapCommand("<Space>tn", "action", "todo-new", {}, { context: "normal" });
+
+  // <Space>ta in normal — wrap current line into a todo
+  Vim.defineAction("todo-wrap", (cm: any) => {
+    const view = cm.cm6 as EditorView;
+    const head = view.state.selection.main.head;
+    const line = view.state.doc.lineAt(head);
+    const text = line.text;
+    // Skip if already a todo
+    if (text.match(/^\s*- \[[ x]\] /)) return;
+    const match = text.match(/^(\s*)(- |\* )?(.*)$/);
+    if (match) {
+      const indent = match[1];
+      const content = match[3];
+      view.dispatch({ changes: { from: line.from, to: line.to, insert: `${indent}- [ ] ${content}` } });
+    }
+  });
+  Vim.mapCommand("<Space>ta", "action", "todo-wrap", {}, { context: "normal" });
 }
 
 // --- Syntax highlighting ---

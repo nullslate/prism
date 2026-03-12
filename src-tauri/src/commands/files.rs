@@ -97,6 +97,41 @@ pub fn read_file(
 }
 
 #[tauri::command]
+pub fn toggle_todo(
+    path: String,
+    line: usize,
+    config: State<'_, Mutex<PrismConfig>>,
+) -> Result<String, String> {
+    let config = config.lock().map_err(|e| e.to_string())?;
+    let full_path = config.vault_path().join(&path);
+    let content = fs::read_to_string(&full_path)
+        .map_err(|e| format!("Failed to read {}: {}", path, e))?;
+    let mut lines: Vec<String> = content.lines().map(String::from).collect();
+    if line == 0 || line > lines.len() {
+        return Err(format!("Line {} out of range", line));
+    }
+    let idx = line - 1;
+    let l = &lines[idx];
+    if l.contains("- [ ] ") {
+        lines[idx] = l.replacen("- [ ] ", "- [x] ", 1);
+    } else if l.contains("- [x] ") {
+        lines[idx] = l.replacen("- [x] ", "- [ ] ", 1);
+    } else {
+        return Err("Line is not a todo item".into());
+    }
+    let new_content = lines.join("\n");
+    // Preserve trailing newline if original had one
+    let new_content = if content.ends_with('\n') {
+        format!("{}\n", new_content)
+    } else {
+        new_content
+    };
+    fs::write(&full_path, &new_content)
+        .map_err(|e| format!("Failed to write {}: {}", path, e))?;
+    Ok(new_content)
+}
+
+#[tauri::command]
 pub fn write_file(path: String, content: String, config: State<'_, Mutex<PrismConfig>>) -> Result<(), String> {
     let config = config.lock().map_err(|e| e.to_string())?;
     let full_path = config.vault_path().join(&path);

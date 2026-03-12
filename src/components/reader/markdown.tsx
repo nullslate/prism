@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkFrontmatter from "remark-frontmatter";
@@ -52,6 +52,93 @@ function VaultImage({ src, alt, ...props }: React.ImgHTMLAttributes<HTMLImageEle
   return <img src={dataUrl} alt={alt} className="max-w-full rounded my-2" {...props} />;
 }
 
+function TransclusionPreview({ target }: { target: string }) {
+  const [preview, setPreview] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(null);
+  const [visible, setVisible] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      // Strip heading anchor if present
+      const filePart = target.split("#")[0];
+      const resolved = await commands.resolveWikiLink(filePart);
+      if (!resolved) { setLoading(false); return; }
+      const content = await commands.readFile(resolved);
+      // Truncate to first ~20 lines for preview
+      const lines = content.split("\n");
+      const truncated = lines.slice(0, 20).join("\n");
+      setPreview(truncated + (lines.length > 20 ? "\n..." : ""));
+    } catch {
+      setPreview(null);
+    }
+    setLoading(false);
+  }, [target]);
+
+  const handleMouseEnter = useCallback(() => {
+    timerRef.current = setTimeout(() => {
+      setVisible(true);
+      load();
+    }, 300);
+  }, [load]);
+
+  const handleMouseLeave = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setVisible(false);
+    setPreview(null);
+  }, []);
+
+  return { handleMouseEnter, handleMouseLeave, visible, preview, loading };
+}
+
+function WikiLink({ target, children, onNavigate }: {
+  target: string;
+  children: React.ReactNode;
+  onNavigate?: (target: string) => void;
+}) {
+  const { handleMouseEnter, handleMouseLeave, visible, preview, loading } =
+    TransclusionPreview({ target });
+
+  return (
+    <span className="relative inline-block" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+      <a
+        href="#"
+        className="border-b border-dotted cursor-pointer"
+        style={{ color: "var(--prism-heading)", borderColor: "var(--prism-heading)" }}
+        onClick={(e) => {
+          e.preventDefault();
+          onNavigate?.(target);
+        }}
+      >
+        {children}
+      </a>
+      {visible && (
+        <div
+          className="absolute z-50 left-0 top-full mt-1 p-3 rounded shadow-lg text-sm overflow-y-auto"
+          style={{
+            background: "var(--prism-sidebar-bg)",
+            border: "1px solid var(--prism-border)",
+            color: "var(--prism-fg)",
+            maxWidth: "400px",
+            maxHeight: "300px",
+            minWidth: "200px",
+            fontFamily: "var(--font-mono)",
+            fontSize: "12px",
+            lineHeight: "1.5",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+          }}
+        >
+          {loading && <span style={{ color: "var(--prism-muted)" }}>Loading...</span>}
+          {!loading && preview && preview}
+          {!loading && !preview && <span style={{ color: "var(--prism-muted)" }}>Not found</span>}
+        </div>
+      )}
+    </span>
+  );
+}
+
 const REMARK_PLUGINS = [remarkGfm, remarkFrontmatter, remarkWikiLinks];
 const REHYPE_PLUGINS = [rehypeHighlight, rehypeSourceLines];
 
@@ -98,18 +185,7 @@ function buildComponents(onNavigate?: (target: string) => void): Components {
     a: ({ children, href, ...props }) => {
       if (href?.startsWith("wiki:")) {
         const target = href.slice(5);
-        return (
-          <a
-            href="#"
-            className="border-b border-dotted cursor-pointer"
-            style={{ color: "var(--prism-heading)", borderColor: "var(--prism-heading)" }}
-            onClick={(e) => {
-              e.preventDefault();
-              onNavigate?.(target);
-            }}
-            {...props}
-          >{children}</a>
-        );
+        return <WikiLink target={target} onNavigate={onNavigate} {...props}>{children}</WikiLink>;
       }
       return <a href={href} className="underline" style={{ color: "var(--prism-accent)" }} {...props}>{children}</a>;
     },
@@ -119,9 +195,31 @@ function buildComponents(onNavigate?: (target: string) => void): Components {
     ol: ({ children, ...props }) => (
       <ol className="list-decimal pl-6 mb-3" {...props}>{children}</ol>
     ),
-    li: ({ children, ...props }) => (
-      <li className="mb-1" {...props}>{children}</li>
-    ),
+    li: ({ children, className, ...props }) => {
+      const isTodo = className === "task-list-item";
+      return (
+        <li className={`mb-1 ${isTodo ? "list-none -ml-6 flex items-start gap-2" : ""}`} {...props}>
+          {children}
+        </li>
+      );
+    },
+    input: ({ type, checked, ...props }) => {
+      if (type === "checkbox") {
+        return (
+          <span
+            className="inline-block w-4 h-4 mt-0.5 rounded border flex-shrink-0 text-center leading-4 text-xs select-none"
+            style={{
+              borderColor: checked ? "var(--prism-accent)" : "var(--prism-muted)",
+              background: checked ? "var(--prism-accent)" : "transparent",
+              color: checked ? "var(--prism-bg)" : "transparent",
+            }}
+          >
+            {checked ? "\u2713" : ""}
+          </span>
+        );
+      }
+      return <input type={type} checked={checked} {...props} />;
+    },
     hr: (props) => (
       <hr className="my-6 border-0 h-px" style={{ background: "var(--prism-border)" }} {...props} />
     ),
