@@ -5,9 +5,6 @@ import { usePrism } from "@/components/prism-provider";
 import { ReaderProvider, useReader } from "@/components/reader-provider";
 import { StatusBar } from "@/components/status-bar";
 import { FileTree } from "@/components/sidebar/file-tree";
-import { Favorites } from "@/components/sidebar/favorites";
-import { Backlinks } from "@/components/sidebar/backlinks";
-import { Outline } from "@/components/sidebar/outline";
 import { MarkdownViewer } from "@/components/reader/markdown";
 import { SourceEditor } from "@/components/reader/source-editor";
 import { FileFinder } from "@/components/search/file-finder";
@@ -534,9 +531,15 @@ function ReaderView() {
     };
 
     const sc = shortcuts ?? { global: {}, render: {} };
+    // Sidebar mode: only escape to close
+    const sidebarActions: Record<string, () => void> = {
+      escape: () => dispatch({ type: "TOGGLE_SIDEBAR" }),
+    };
+
     return {
       global: buildKeyMap(globalActions, sc.global),
       render: buildKeyMap(renderActions, sc.render),
+      sidebar: { escape: sidebarActions.escape },
     };
   }, [
     shortcuts,
@@ -555,19 +558,26 @@ function ReaderView() {
     setVault,
   ]);
 
-  useShortcuts(shortcutMaps, state.editorOpen ? "editor" : "render", dispatch);
+  const currentMode = state.editorOpen ? "editor" : state.sidebarVisible ? "sidebar" : "render";
+  useShortcuts(shortcutMaps, currentMode, dispatch);
 
   return (
     <>
       <div className="flex flex-1 overflow-hidden">
         {state.sidebarVisible && (
-          <aside
-            className="w-60 border-r overflow-y-auto shrink-0"
-            style={{
-              borderColor: "var(--prism-border)",
-              background: "var(--prism-sidebar-bg)",
-            }}
+          <div
+            className="absolute inset-0 z-40 flex flex-col overflow-hidden"
+            style={{ background: "var(--prism-sidebar-bg)" }}
           >
+            <div
+              className="px-3 py-2 text-xs font-bold uppercase tracking-widest border-b flex items-center justify-between"
+              style={{ color: "var(--prism-muted)", borderColor: "var(--prism-border)" }}
+            >
+              <span>Files</span>
+              <span style={{ color: "var(--prism-muted)", fontSize: "10px", fontWeight: "normal", textTransform: "none" }}>
+                j/k nav &middot; o open &middot; h/l collapse/expand &middot; R rename &middot; dd trash
+              </span>
+            </div>
             {Object.entries(pluginUIs).map(([name, ui]) =>
               ui.sidebar ? (
                 <PluginErrorBoundary key={name} pluginName={name}>
@@ -575,26 +585,19 @@ function ReaderView() {
                 </PluginErrorBoundary>
               ) : null
             )}
-            <Favorites
-              favorites={favorites}
-              currentPath={currentPath}
-              onSelect={openFile}
-            />
-            <div
-              className="px-3 py-1.5 text-xs font-bold uppercase tracking-widest"
-              style={{ color: "var(--prism-muted)" }}
-            >
-              Files
-            </div>
             <FileTree
               nodes={files}
               currentPath={currentPath}
-              onSelect={openFile}
+              onSelect={(path) => {
+                openFile(path);
+                dispatch({ type: "TOGGLE_SIDEBAR" });
+              }}
               onTrash={trashFile}
+              onRename={renameCurrentFile}
+              onRefresh={refreshFiles}
+              active={state.sidebarVisible && !state.editorOpen}
             />
-            <Backlinks currentPath={currentPath} onSelect={openFile} />
-            <Outline content={content} readerRef={readerRef} />
-          </aside>
+          </div>
         )}
 
         {state.editorOpen && currentPath && content != null ? (
