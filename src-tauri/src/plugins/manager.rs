@@ -1,5 +1,5 @@
 use crate::config::PluginSpec;
-use super::{PluginManifest, PluginInfo, PluginStatusItem};
+use super::{PluginManifest, PluginInfo};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Command;

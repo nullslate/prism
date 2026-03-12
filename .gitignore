@@ -28,3 +28,6 @@ src-tauri/target/
 
 # Worktrees
 .worktrees/
+
+# Docs (superpowers plans/specs)
+docs/
