@@ -78,6 +78,11 @@ export interface TemplateMeta {
   path: string;
 }
 
+export interface HeadingInfo {
+  text: string;
+  level: number;
+}
+
 export interface VaultSearchMatch {
   path: string;
   name: string;

@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { FileNode, PrismConfig, ShortcutConfig, Favorite, Theme, SearchResult, TagInfo, TaggedFile, TemplateMeta, LinkGraph, BacklinkResult, VaultSearchMatch, PluginInfo, PluginCommand, PluginStatusItem } from "./types";
+import type { FileNode, PrismConfig, ShortcutConfig, Favorite, Theme, SearchResult, TagInfo, TaggedFile, TemplateMeta, HeadingInfo, LinkGraph, BacklinkResult, VaultSearchMatch, PluginInfo, PluginCommand, PluginStatusItem } from "./types";
 
 export const commands = {
   listFiles: () => invoke<FileNode[]>("list_files"),
@@ -15,6 +15,7 @@ export const commands = {
   createDailyNote: () => invoke<string>("create_daily_note"),
   listTemplates: () => invoke<TemplateMeta[]>("list_templates"),
   createFromTemplate: (templateName: string, destPath: string) => invoke<string>("create_from_template", { templateName, destPath }),
+  getFileHeadings: (path: string) => invoke<HeadingInfo[]>("get_file_headings", { path }),
   listTags: () => invoke<TagInfo[]>("list_tags"),
   filesForTag: (tag: string) => invoke<TaggedFile[]>("files_for_tag", { tag }),
   fuzzySearch: (query: string) => invoke<SearchResult[]>("fuzzy_search", { query }),
