@@ -3,9 +3,10 @@ import { commands } from "@/lib/tauri";
 
 interface QuickCaptureProps {
   onClose: () => void;
+  onCapture?: () => void;
 }
 
-export function QuickCapture({ onClose }: QuickCaptureProps) {
+export function QuickCapture({ onClose, onCapture }: QuickCaptureProps) {
   const [text, setText] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -21,11 +22,12 @@ export function QuickCapture({ onClose }: QuickCaptureProps) {
     const formatted = `${ts} — ${trimmed}`;
     try {
       await commands.appendToInbox(formatted);
+      onCapture?.();
       onClose();
     } catch (e) {
       console.error("Failed to capture:", e);
     }
-  }, [text, onClose]);
+  }, [text, onClose, onCapture]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
