@@ -73,6 +73,11 @@ export interface TaggedFile {
   name: string;
 }
 
+export interface TemplateMeta {
+  name: string;
+  path: string;
+}
+
 export interface VaultSearchMatch {
   path: string;
   name: string;

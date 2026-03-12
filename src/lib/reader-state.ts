@@ -1,4 +1,4 @@
-export type Overlay = "none" | "file-finder" | "search" | "palette" | "new-file" | "rename" | "tags" | "capture" | "graph" | "vault-search";
+export type Overlay = "none" | "file-finder" | "search" | "palette" | "new-file" | "rename" | "tags" | "capture" | "graph" | "vault-search" | "template";
 
 export interface ReaderState {
   sidebarVisible: boolean;
