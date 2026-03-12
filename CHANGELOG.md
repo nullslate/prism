@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.4.0] - 2026-03-12
+
+### Features
+
+- Wiki link autocomplete: type `[[` in the editor to get file and heading suggestions
+- Template system: create notes from templates with variable expansion (date, title, etc.)
+- Template picker dialog and daily note templates
+- Plugin runtime wiring: Lua plugins now load at startup and can hook into the app lifecycle
+- `file:pre-render` event dispatched through Lua plugins when rendering markdown files
+- Plugin load errors surfaced as toast notifications in the frontend
+- `plugin_emit` command routes frontend events through LuaRuntime dispatch
+
+### Fixed
+
+- Quick capture missing `onCapture` prop causing type error
+
+### Changed
+
+- Bumped version to 0.4.0
+- Added `send` feature to mlua for thread-safe Lua instances in Tauri managed state
+- Suppressed dead-code warnings across plugin modules
+
 ## [0.3.1] - 2026-03-11
 
 ### Fixed
