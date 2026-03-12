@@ -9,7 +9,7 @@ interface FileTreeProps {
   onTrash?: (path: string) => void;
   onRename?: (oldPath: string, newPath: string) => void;
   onRefresh?: () => void;
-  active: boolean;
+  onClose: () => void;
 }
 
 interface FlatItem {
@@ -41,7 +41,7 @@ export const FileTree = memo(function FileTree({
   onTrash,
   onRename,
   onRefresh,
-  active,
+  onClose,
 }: FileTreeProps) {
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set());
   const [cursor, setCursor] = useState(0);
@@ -73,11 +73,15 @@ export const FileTree = memo(function FileTree({
     }
   }, [cursor]);
 
+  // Auto-focus the container on mount so it captures keyboard events
+  useEffect(() => {
+    containerRef.current?.focus();
+  }, []);
+
   // Focus on rename input
   useEffect(() => {
     if (renaming && renameInputRef.current) {
       renameInputRef.current.focus();
-      // Select just the filename without extension
       const dotIdx = renameValue.lastIndexOf(".");
       if (dotIdx > 0) {
         renameInputRef.current.setSelectionRange(0, dotIdx);
@@ -138,107 +142,107 @@ export const FileTree = memo(function FileTree({
   }, [renaming, renameValue, onRename, onRefresh]);
 
   const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (!active || items.length === 0) return;
+    (e: React.KeyboardEvent) => {
+      if (items.length === 0) return;
 
-      // Let all modifier combos through to useShortcuts (Ctrl+B, Ctrl+F, etc.)
+      // Let modifier combos bubble up (Ctrl+B, Ctrl+F, etc.)
       if (e.ctrlKey || e.metaKey || e.altKey) return;
 
-      // When renaming, only handle escape and enter
-      if (renaming) {
-        if (e.key === "Escape") {
-          e.preventDefault();
-          setRenaming(null);
-        }
-        // Enter is handled by the input's onKeyDown
+      // When renaming, input handles its own keys
+      if (renaming) return;
+
+      // Close on Escape or q
+      if (e.key === "Escape" || e.key === "q") {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
         return;
       }
 
       const item = items[cursor];
       if (!item) return;
 
-      // Only handle keys we own — let everything else pass through
-      const handled = (() => {
-        switch (e.key) {
-          case "j":
-            setCursor((c) => Math.min(c + 1, items.length - 1));
-            setPendingTrash(null);
-            return true;
-          case "k":
-            setCursor((c) => Math.max(c - 1, 0));
-            setPendingTrash(null);
-            return true;
-          case "o":
-          case "Enter":
-            if (item.node.is_dir) {
-              toggleDir(item.node.path);
+      switch (e.key) {
+        case "j":
+          e.preventDefault();
+          setCursor((c) => Math.min(c + 1, items.length - 1));
+          setPendingTrash(null);
+          break;
+        case "k":
+          e.preventDefault();
+          setCursor((c) => Math.max(c - 1, 0));
+          setPendingTrash(null);
+          break;
+        case "o":
+        case "Enter":
+          e.preventDefault();
+          if (item.node.is_dir) {
+            toggleDir(item.node.path);
+          } else {
+            onSelect(item.node.path);
+          }
+          break;
+        case "l":
+          e.preventDefault();
+          if (item.node.is_dir) {
+            expandDir(item.node.path);
+          }
+          break;
+        case "h":
+          e.preventDefault();
+          if (item.node.is_dir && item.expanded) {
+            collapseDir(item.node.path);
+          } else if (item.depth > 0) {
+            for (let i = cursor - 1; i >= 0; i--) {
+              if (items[i].node.is_dir && items[i].depth < item.depth) {
+                setCursor(i);
+                break;
+              }
+            }
+          }
+          break;
+        case " ":
+          e.preventDefault();
+          if (item.node.is_dir) {
+            toggleDir(item.node.path);
+          }
+          break;
+        case "d":
+          e.preventDefault();
+          if (!item.node.is_dir) {
+            if (pendingTrash === item.node.path) {
+              if (pendingTrashTimer.current) clearTimeout(pendingTrashTimer.current);
+              setPendingTrash(null);
+              onTrash?.(item.node.path);
             } else {
-              onSelect(item.node.path);
+              setPendingTrash(item.node.path);
+              if (pendingTrashTimer.current) clearTimeout(pendingTrashTimer.current);
+              pendingTrashTimer.current = setTimeout(() => setPendingTrash(null), 2000);
             }
-            return true;
-          case "l":
-            if (item.node.is_dir) {
-              expandDir(item.node.path);
-            }
-            return true;
-          case "h":
-            if (item.node.is_dir && item.expanded) {
-              collapseDir(item.node.path);
-            } else if (item.depth > 0) {
-              for (let i = cursor - 1; i >= 0; i--) {
-                if (items[i].node.is_dir && items[i].depth < item.depth) {
-                  setCursor(i);
-                  break;
-                }
-              }
-            }
-            return true;
-          case " ":
-            if (item.node.is_dir) {
-              toggleDir(item.node.path);
-            }
-            return true;
-          case "d":
-            if (!item.node.is_dir) {
-              if (pendingTrash === item.node.path) {
-                if (pendingTrashTimer.current) clearTimeout(pendingTrashTimer.current);
-                setPendingTrash(null);
-                onTrash?.(item.node.path);
-              } else {
-                setPendingTrash(item.node.path);
-                if (pendingTrashTimer.current) clearTimeout(pendingTrashTimer.current);
-                pendingTrashTimer.current = setTimeout(() => setPendingTrash(null), 2000);
-              }
-            }
-            return true;
-          case "R":
-            if (!item.node.is_dir) {
-              setRenaming(item.node.path);
-              setRenameValue(item.node.path);
-            }
-            return true;
-          case "g":
-            setCursor(0);
-            return true;
-          case "G":
-            setCursor(items.length - 1);
-            return true;
-          default:
-            return false;
-        }
-      })();
-
-      if (handled) {
-        e.preventDefault();
+          }
+          break;
+        case "R":
+          e.preventDefault();
+          if (!item.node.is_dir) {
+            setRenaming(item.node.path);
+            setRenameValue(item.node.path);
+          }
+          break;
+        case "g":
+          e.preventDefault();
+          setCursor(0);
+          break;
+        case "G":
+          e.preventDefault();
+          setCursor(items.length - 1);
+          break;
+        default:
+          // Don't prevent default — let it bubble
+          break;
       }
     },
-    [active, items, cursor, renaming, pendingTrash, toggleDir, expandDir, collapseDir, onSelect, onTrash],
+    [items, cursor, renaming, pendingTrash, toggleDir, expandDir, collapseDir, onSelect, onTrash, onClose],
   );
-
-  useEffect(() => {
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleKeyDown]);
 
   // Sync cursor to current path when it changes externally
   useEffect(() => {
@@ -250,10 +254,10 @@ export const FileTree = memo(function FileTree({
   return (
     <div
       ref={containerRef}
-      className="flex-1 overflow-y-auto"
-      style={{
-        scrollbarWidth: "none",
-      }}
+      className="flex-1 overflow-y-auto outline-none"
+      style={{ scrollbarWidth: "none" }}
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
     >
       <ul className="list-none m-0 p-0">
         {items.map((item, idx) => (
@@ -273,6 +277,7 @@ export const FileTree = memo(function FileTree({
             onSelect={onSelect}
             onToggle={toggleDir}
             onSetCursor={setCursor}
+            containerRef={containerRef}
           />
         ))}
       </ul>
@@ -308,6 +313,7 @@ const FileTreeRow = memo(function FileTreeRow({
   onSelect,
   onToggle,
   onSetCursor,
+  containerRef,
 }: {
   item: FlatItem;
   idx: number;
@@ -323,6 +329,7 @@ const FileTreeRow = memo(function FileTreeRow({
   onSelect: (path: string) => void;
   onToggle: (path: string) => void;
   onSetCursor: (idx: number) => void;
+  containerRef: React.RefObject<HTMLDivElement | null>;
 }) {
   const { node, depth, expanded } = item;
   const indent = depth * 16 + 12;
@@ -358,8 +365,13 @@ const FileTreeRow = memo(function FileTreeRow({
                 e.preventDefault();
                 onRenameCancel();
               }
+              e.stopPropagation();
             }}
-            onBlur={onRenameCancel}
+            onBlur={() => {
+              onRenameCancel();
+              // Re-focus container so keyboard nav works
+              containerRef.current?.focus();
+            }}
             className="w-full bg-transparent text-sm outline-none"
             style={{
               fontFamily: "var(--font-mono)",
@@ -374,7 +386,7 @@ const FileTreeRow = memo(function FileTreeRow({
 
   return (
     <li data-idx={idx}>
-      <button
+      <div
         onClick={() => {
           onSetCursor(idx);
           if (node.is_dir) {
@@ -382,8 +394,10 @@ const FileTreeRow = memo(function FileTreeRow({
           } else {
             onSelect(node.path);
           }
+          // Keep focus on container
+          containerRef.current?.focus();
         }}
-        className="w-full text-left flex items-center gap-1.5 py-1 px-3 text-sm"
+        className="flex items-center gap-1.5 py-1 px-3 text-sm cursor-pointer"
         style={{
           paddingLeft: `${indent}px`,
           fontFamily: "var(--font-mono)",
@@ -400,7 +414,7 @@ const FileTreeRow = memo(function FileTreeRow({
         <span className="truncate">
           {node.is_dir ? `${node.name}/` : node.name.replace(/\.md$/, "")}
         </span>
-      </button>
+      </div>
     </li>
   );
 });

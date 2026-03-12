@@ -534,10 +534,7 @@ function ReaderView() {
     return {
       global: buildKeyMap(globalActions, sc.global),
       render: buildKeyMap(renderActions, sc.render),
-      sidebar: {
-        escape: () => dispatch({ type: "TOGGLE_SIDEBAR" }),
-        q: () => dispatch({ type: "TOGGLE_SIDEBAR" }),
-      },
+      sidebar: {},
     };
   }, [
     shortcuts,
@@ -593,7 +590,7 @@ function ReaderView() {
               onTrash={trashFile}
               onRename={renameCurrentFile}
               onRefresh={refreshFiles}
-              active={state.sidebarVisible && !state.editorOpen}
+              onClose={() => dispatch({ type: "TOGGLE_SIDEBAR" })}
             />
           </div>
         )}
