@@ -25,15 +25,19 @@ export async function loadPluginBundle(pluginName: string): Promise<PluginUI | n
   }
 
   return new Promise((resolve) => {
+    const isWindows = navigator.userAgent.includes("Windows");
+    const base = isWindows
+      ? "http://prism-plugin.localhost"
+      : "prism-plugin://localhost";
+    const url = `${base}/${pluginName}/ui/dist/index.js`;
     const script = document.createElement("script");
-    script.src = `http://prism-plugin.localhost/${pluginName}/ui/dist/index.js`;
+    script.src = url;
     script.setAttribute("data-plugin", pluginName);
     script.onload = () => {
       loadedPlugins.add(pluginName);
       resolve(window.__PRISM_PLUGINS__?.[pluginName] ?? null);
     };
     script.onerror = () => {
-      console.error(`Failed to load UI bundle for plugin: ${pluginName}`);
       loadedPlugins.add(pluginName);
       resolve(null);
     };

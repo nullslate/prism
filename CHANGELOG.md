@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.3.1] - 2026-03-11
+
+### Fixed
+
+- Plugin UI bundles now load correctly on Linux (use `scheme://localhost/` URL format instead of `http://scheme.localhost/`)
+- Plugin bundles no longer crash with "require is not defined" — added require shim mapping React externals to window globals
+- Fixed invalid TOML in ascii-clock plugin manifest (conflicting `ui` key definitions)
+- Plugin sidebar panels render at top of sidebar instead of bottom
+
+### Changed
+
+- Enable devtools in release builds
+- Expose React, ReactDOM, and jsx-runtime as window globals for plugin bundles
+- Removed internal planning docs from tracked files
+
 ## [0.3.0] - 2026-03-11
 
 ### Features
@@ -15,10 +30,6 @@
 - "Update Plugins" and "Clean Unused Plugins" commands in palette
 - `@prism/plugin-sdk` npm package with themed components (Panel, List, Input, Button, Text, Overlay) and hooks (usePlugin, usePluginContext)
 - Hello-world test plugin for development reference
-
-### Docs
-
-- Plugin system design spec and implementation plan
 
 ## [0.2.1] - 2026-03-11
 

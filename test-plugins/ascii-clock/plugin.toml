@@ -10,6 +10,3 @@ events = []
 commands = [
   { id = "toggle-clock", label = "Toggle ASCII Clock" },
 ]
-
-[plugin.ui]
-sidebar = true

@@ -484,6 +484,13 @@ function ReaderView() {
               background: "var(--prism-sidebar-bg)",
             }}
           >
+            {Object.entries(pluginUIs).map(([name, ui]) =>
+              ui.sidebar ? (
+                <PluginErrorBoundary key={name} pluginName={name}>
+                  <ui.sidebar />
+                </PluginErrorBoundary>
+              ) : null
+            )}
             <Favorites
               favorites={favorites}
               currentPath={currentPath}
@@ -503,13 +510,6 @@ function ReaderView() {
             />
             <Backlinks currentPath={currentPath} onSelect={openFile} />
             <Outline content={content} readerRef={readerRef} />
-            {Object.entries(pluginUIs).map(([name, ui]) =>
-              ui.sidebar ? (
-                <PluginErrorBoundary key={name} pluginName={name}>
-                  <ui.sidebar />
-                </PluginErrorBoundary>
-              ) : null
-            )}
           </aside>
         )}
 
