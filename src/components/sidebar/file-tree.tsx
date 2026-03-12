@@ -244,12 +244,6 @@ export const FileTree = memo(function FileTree({
     [items, cursor, renaming, pendingTrash, toggleDir, expandDir, collapseDir, onSelect, onTrash, onClose],
   );
 
-  // Sync cursor to current path when it changes externally
-  useEffect(() => {
-    if (!currentPath) return;
-    const idx = items.findIndex((item) => item.node.path === currentPath);
-    if (idx >= 0) setCursor(idx);
-  }, [currentPath, items]);
 
   return (
     <div

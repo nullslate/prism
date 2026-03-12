@@ -17,6 +17,7 @@ import { TagFilter } from "@/components/tag-filter";
 import { QuickCapture } from "@/components/quick-capture";
 import { TemplatePickerDialog } from "@/components/template-picker";
 import { LinkGraph } from "@/components/link-graph";
+import { ThemePicker } from "@/components/theme-picker";
 import { PluginErrorBoundary } from "@/components/plugin-panel";
 import { loadPluginBundle, type PluginUI } from "@/lib/plugin-loader";
 import { useToast } from "@/components/toast";
@@ -277,19 +278,6 @@ function ReaderView() {
     // Config watcher will trigger reload
   }, [config, toast]);
 
-  const cycleTheme = useCallback(async () => {
-    if (!config) return;
-    try {
-      const themes = await commands.listThemes();
-      if (themes.length === 0) return;
-      const idx = themes.indexOf(config.theme);
-      const next = themes[(idx + 1) % themes.length];
-      await commands.setConfig({ ...config, theme: next });
-      toast.info(`Theme: ${next}`);
-    } catch (e) {
-      console.error("Failed to cycle theme:", e);
-    }
-  }, [config, toast]);
 
   const renameCurrentFile = useCallback(
     (newPath: string) => {
@@ -410,7 +398,7 @@ function ReaderView() {
         id: "switch-theme",
         label: "Switch Theme",
         shortcut: shortcutLabel("cycle-theme"),
-        action: () => cycleTheme(),
+        action: () => dispatch({ type: "SET_OVERLAY", overlay: "theme" }),
       },
       {
         id: "show-outline",
@@ -448,7 +436,7 @@ function ReaderView() {
         },
       },
     ],
-    [currentPath, currentFileName, toggleFavorite, refreshFiles, dispatch, trashCurrentFile, cycleTheme, setVault, openFile, shortcutLabel, state.sidebarVisible, toast],
+    [currentPath, currentFileName, toggleFavorite, refreshFiles, dispatch, trashCurrentFile, setVault, openFile, shortcutLabel, state.sidebarVisible, toast],
   );
 
   const allPaletteCommands = useMemo(() => {
@@ -473,7 +461,7 @@ function ReaderView() {
       "quick-capture": () => dispatch({ type: "SET_OVERLAY", overlay: "capture" }),
       "new-from-template": () => dispatch({ type: "SET_OVERLAY", overlay: "template" }),
       "link-graph": () => dispatch({ type: "SET_OVERLAY", overlay: "graph" }),
-      "cycle-theme": () => cycleTheme(),
+      "cycle-theme": () => dispatch({ type: "SET_OVERLAY", overlay: "theme" }),
       "vault-search": () => dispatch({ type: "SET_OVERLAY", overlay: "vault-search" }),
       "set-vault": () => setVault(),
       "close-overlay": () => dispatch({ type: "CLOSE_OVERLAY" }),
@@ -549,7 +537,6 @@ function ReaderView() {
     pendingTrash,
     trashCurrentFile,
     toggleNearestTodo,
-    cycleTheme,
     setVault,
   ]);
 
@@ -679,6 +666,11 @@ function ReaderView() {
       {state.overlay === "vault-search" && (
         <VaultSearch
           onSelect={openFile}
+          onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
+        />
+      )}
+      {state.overlay === "theme" && (
+        <ThemePicker
           onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
         />
       )}

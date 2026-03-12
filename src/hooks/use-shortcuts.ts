@@ -50,10 +50,11 @@ export function useShortcuts(
       const parts: string[] = [];
       if (e.ctrlKey || e.metaKey) parts.push("ctrl");
       if (e.altKey) parts.push("alt");
+      if (e.shiftKey && (e.ctrlKey || e.metaKey || e.altKey)) parts.push("shift");
 
       const key = e.key.length === 1 ? e.key : e.key.toLowerCase();
-      if (e.shiftKey && e.key.length === 1) {
-        parts.push(e.key); // already uppercase from shift
+      if (e.shiftKey && e.key.length === 1 && !(e.ctrlKey || e.metaKey || e.altKey)) {
+        parts.push(e.key); // uppercase for standalone shift (e.g. G, R)
       } else {
         parts.push(key.toLowerCase());
       }
