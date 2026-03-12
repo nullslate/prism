@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { FileNode, PrismConfig, ShortcutConfig, Favorite, Theme, SearchResult, TagInfo, TaggedFile, LinkGraph, BacklinkResult, VaultSearchMatch } from "./types";
+import type { FileNode, PrismConfig, ShortcutConfig, Favorite, Theme, SearchResult, TagInfo, TaggedFile, LinkGraph, BacklinkResult, VaultSearchMatch, PluginInfo, PluginCommand, PluginStatusItem } from "./types";
 
 export const commands = {
   listFiles: () => invoke<FileNode[]>("list_files"),
@@ -31,6 +31,12 @@ export const commands = {
   vaultSearch: (query: string) => invoke<VaultSearchMatch[]>("vault_search", { query }),
   saveImage: (filename: string, base64Data: string) => invoke<string>("save_image", { filename, base64Data }),
   getImage: (path: string) => invoke<string>("get_image", { path }),
+  listPlugins: () => invoke<PluginInfo[]>("list_plugins"),
+  getPluginCommands: () => invoke<PluginCommand[]>("get_plugin_commands"),
+  getPluginStatusItems: () => invoke<PluginStatusItem[]>("get_plugin_status_items"),
+  updatePlugins: () => invoke<number>("update_plugins"),
+  cleanPlugins: () => invoke<string[]>("clean_plugins"),
+  pluginEmit: (event: string, data?: unknown) => invoke<void>("plugin_emit", { event, data }),
 };
 
 export function onFileChanged(callback: (path: string) => void): Promise<UnlistenFn> {

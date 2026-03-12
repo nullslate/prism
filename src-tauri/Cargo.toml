@@ -33,4 +33,5 @@ regex = "1"
 base64 = "0.22"
 chrono = "0.4"
 tauri-plugin-dialog = "2.6.0"
+mlua = { version = "0.10", features = ["lua54", "serialize"] }
 

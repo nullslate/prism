@@ -1,0 +1,11 @@
+[plugin]
+name = "hello-world"
+version = "0.1.0"
+description = "Test plugin for development"
+entry = "init.lua"
+
+[plugin.hooks]
+events = ["file:opened"]
+commands = [
+  { id = "hello", label = "Say Hello" },
+]

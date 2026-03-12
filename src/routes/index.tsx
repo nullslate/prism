@@ -19,6 +19,8 @@ import { RenameDialog } from "@/components/rename-dialog";
 import { TagFilter } from "@/components/tag-filter";
 import { QuickCapture } from "@/components/quick-capture";
 import { LinkGraph } from "@/components/link-graph";
+import { PluginErrorBoundary } from "@/components/plugin-panel";
+import { loadPluginBundle, type PluginUI } from "@/lib/plugin-loader";
 import { useToast } from "@/components/toast";
 import { commands } from "@/lib/tauri";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -38,10 +40,11 @@ export const Route = createFileRoute("/")(
 function ReaderView() {
   const { files, currentPath, content, openFile, closeFile, refreshFiles, setContent } =
     useVault();
-  const { config, shortcuts, favorites, toggleFavorite } = usePrism();
+  const { config, shortcuts, favorites, pluginCommands, toggleFavorite } = usePrism();
   const { state, dispatch, readerRef } = useReader();
   const toast = useToast();
   const scrollLineRef = useRef(1);
+  const [pluginUIs, setPluginUIs] = useState<Record<string, PluginUI>>({});
   const [pendingTrash, setPendingTrash] = useState<string | null>(null);
   const pendingTrashTimer = useRef<ReturnType<typeof setTimeout>>(null);
   const scrollSaveTimer = useRef<ReturnType<typeof setTimeout>>(null);
@@ -80,6 +83,20 @@ function ReaderView() {
     });
     return () => { unlisten.then((f) => f()); };
   }, [dispatch]);
+
+  useEffect(() => {
+    commands.listPlugins().then((plugins) => {
+      for (const plugin of plugins) {
+        if (plugin.enabled) {
+          loadPluginBundle(plugin.name).then((ui) => {
+            if (ui) {
+              setPluginUIs((prev) => ({ ...prev, [plugin.name]: ui }));
+            }
+          });
+        }
+      }
+    }).catch(console.error);
+  }, []);
 
   const scrollReader = useCallback(
     (direction: "up" | "down", amount?: number) => {
@@ -334,9 +351,39 @@ function ReaderView() {
           }).catch(console.error);
         },
       },
+      {
+        id: "update-plugins",
+        label: "Update Plugins",
+        action: () => {
+          commands.updatePlugins().then((count) => {
+            toast.info(`Updated ${count} plugin(s)`);
+          }).catch(console.error);
+        },
+      },
+      {
+        id: "clean-plugins",
+        label: "Clean Unused Plugins",
+        action: () => {
+          commands.cleanPlugins().then((removed) => {
+            toast.info(`Removed ${removed.length} plugin(s)`);
+          }).catch(console.error);
+        },
+      },
     ],
-    [currentPath, currentFileName, toggleFavorite, refreshFiles, dispatch, trashCurrentFile, cycleTheme, setVault, openFile, shortcutLabel, state.sidebarVisible],
+    [currentPath, currentFileName, toggleFavorite, refreshFiles, dispatch, trashCurrentFile, cycleTheme, setVault, openFile, shortcutLabel, state.sidebarVisible, toast],
   );
+
+  const allPaletteCommands = useMemo(() => {
+    const pluginCmds = pluginCommands.map((cmd) => ({
+      id: `plugin:${cmd.plugin}:${cmd.id}`,
+      label: cmd.label,
+      shortcut: cmd.shortcut ?? undefined,
+      action: () => {
+        commands.pluginEmit(`command:${cmd.id}`, undefined);
+      },
+    }));
+    return [...paletteCommands, ...pluginCmds];
+  }, [paletteCommands, pluginCommands]);
 
   const shortcutMaps: ShortcutMaps = useMemo(() => {
     const globalActions: Record<string, () => void> = {
@@ -456,6 +503,13 @@ function ReaderView() {
             />
             <Backlinks currentPath={currentPath} onSelect={openFile} />
             <Outline content={content} readerRef={readerRef} />
+            {Object.entries(pluginUIs).map(([name, ui]) =>
+              ui.sidebar ? (
+                <PluginErrorBoundary key={name} pluginName={name}>
+                  <ui.sidebar />
+                </PluginErrorBoundary>
+              ) : null
+            )}
           </aside>
         )}
 
@@ -502,7 +556,7 @@ function ReaderView() {
       )}
       {state.overlay === "palette" && (
         <CommandPalette
-          commands={paletteCommands}
+          commands={allPaletteCommands}
           onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
         />
       )}

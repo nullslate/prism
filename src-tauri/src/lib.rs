@@ -1,5 +1,6 @@
 mod commands;
 mod config;
+mod plugins;
 mod theme;
 mod watcher;
 
@@ -50,11 +51,42 @@ fn parse_hotkey(s: &str) -> Option<Shortcut> {
 pub fn run() {
     let config = PrismConfig::load().unwrap_or_default();
 
+    let mut plugin_manager = plugins::manager::PluginManager::new();
+    plugin_manager.discover(&config.plugins);
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
+        .register_asynchronous_uri_scheme_protocol("prism-plugin", |_ctx, request, responder| {
+            let url = request.uri().to_string();
+            let plugins_dir = dirs::config_dir()
+                .unwrap()
+                .join("prism")
+                .join("plugins");
+
+            std::thread::spawn(move || {
+                match plugins::protocol::resolve_plugin_asset(&plugins_dir, &url) {
+                    Some((body, mime)) => {
+                        let response = tauri::http::Response::builder()
+                            .header("Content-Type", &mime)
+                            .header("Access-Control-Allow-Origin", "*")
+                            .body(body)
+                            .unwrap();
+                        responder.respond(response);
+                    }
+                    None => {
+                        let response = tauri::http::Response::builder()
+                            .status(404)
+                            .body(b"Not found".to_vec())
+                            .unwrap();
+                        responder.respond(response);
+                    }
+                }
+            });
+        })
         .manage(Mutex::new(config))
+        .manage(Mutex::new(plugin_manager))
         .setup(|app| {
             use tauri::Manager;
 
@@ -155,6 +187,12 @@ pub fn run() {
             commands::graph::get_link_graph,
             commands::images::save_image,
             commands::images::get_image,
+            commands::plugins::list_plugins,
+            commands::plugins::get_plugin_commands,
+            commands::plugins::get_plugin_status_items,
+            commands::plugins::update_plugins,
+            commands::plugins::clean_plugins,
+            commands::plugins::plugin_emit,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

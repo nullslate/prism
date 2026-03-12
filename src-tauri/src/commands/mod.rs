@@ -5,6 +5,7 @@ pub mod favorites;
 pub mod files;
 pub mod graph;
 pub mod images;
+pub mod plugins;
 pub mod search;
 pub mod tags;
 pub mod theme;
