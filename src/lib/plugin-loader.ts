@@ -26,7 +26,7 @@ export async function loadPluginBundle(pluginName: string): Promise<PluginUI | n
 
   return new Promise((resolve) => {
     const script = document.createElement("script");
-    script.src = `prism-plugin://${pluginName}/ui/dist/index.js`;
+    script.src = `http://prism-plugin.localhost/${pluginName}/ui/dist/index.js`;
     script.setAttribute("data-plugin", pluginName);
     script.onload = () => {
       loadedPlugins.add(pluginName);
