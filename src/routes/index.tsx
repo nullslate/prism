@@ -108,6 +108,13 @@ function ReaderView() {
   }, [dispatch]);
 
   useEffect(() => {
+    const unlisten = listen<{ plugin: string; error: string }>("plugin-error", (event) => {
+      toast.error(`Plugin "${event.payload.plugin}" failed: ${event.payload.error}`);
+    });
+    return () => { unlisten.then((f) => f()); };
+  }, [toast]);
+
+  useEffect(() => {
     commands.listPlugins().then((plugins) => {
       for (const plugin of plugins) {
         if (plugin.enabled) {
