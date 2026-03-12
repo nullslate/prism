@@ -23,6 +23,8 @@ pub struct PrismConfig {
     #[serde(default)]
     #[serde(skip_serializing_if = "ShortcutConfig::is_empty")]
     pub shortcuts: ShortcutConfig,
+    #[serde(default)]
+    pub plugins: Vec<PluginSpec>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -37,6 +39,45 @@ pub struct ShortcutConfig {
 pub struct VaultConfig {
     #[serde(default)]
     pub shortcuts: ShortcutConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PluginSpec {
+    pub name: String,
+    #[serde(default)]
+    pub path: Option<String>,
+    #[serde(default)]
+    pub git: Option<String>,
+    #[serde(default = "default_branch")]
+    pub branch: String,
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
+    #[serde(default = "default_opts")]
+    pub opts: toml::Value,
+    #[serde(default)]
+    pub lazy: Option<LazySpec>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LazySpec {
+    #[serde(default)]
+    pub event: Option<String>,
+    #[serde(default)]
+    pub command: Option<String>,
+    #[serde(default)]
+    pub shortcut: Option<String>,
+}
+
+fn default_branch() -> String {
+    "main".into()
+}
+
+fn default_enabled() -> bool {
+    true
+}
+
+fn default_opts() -> toml::Value {
+    toml::Value::Table(toml::map::Map::new())
 }
 
 impl ShortcutConfig {
@@ -178,6 +219,7 @@ impl Default for PrismConfig {
             window: WindowConfig::default(),
             favorites: vec![],
             shortcuts: ShortcutConfig::default(),
+            plugins: vec![],
         }
     }
 }
@@ -266,5 +308,45 @@ label = "Scratch"
         let config: PrismConfig = toml::from_str(toml_str).unwrap();
         assert_eq!(config.theme, "catppuccin-mocha");
         assert_eq!(config.window.width, 420);
+    }
+
+    #[test]
+    fn test_parse_plugins() {
+        let toml_str = r###"
+vault = "~/notes"
+
+[[plugins]]
+name = "word-count"
+path = "~/.config/prism/plugins/word-count"
+
+[[plugins]]
+name = "daily-summary"
+git = "https://github.com/someone/prism-daily-summary"
+
+[plugins.opts]
+template = "## {{date}}"
+auto_open = true
+
+[plugins.lazy]
+event = "file:opened"
+command = "daily-summary"
+"###;
+        let config: PrismConfig = toml::from_str(toml_str).unwrap();
+        assert_eq!(config.plugins.len(), 2);
+        assert_eq!(config.plugins[0].name, "word-count");
+        assert!(config.plugins[0].path.is_some());
+        assert_eq!(config.plugins[1].name, "daily-summary");
+        assert!(config.plugins[1].git.is_some());
+        assert!(config.plugins[1].lazy.is_some());
+        let lazy = config.plugins[1].lazy.as_ref().unwrap();
+        assert_eq!(lazy.event.as_deref(), Some("file:opened"));
+        assert_eq!(lazy.command.as_deref(), Some("daily-summary"));
+    }
+
+    #[test]
+    fn test_config_without_plugins() {
+        let toml_str = r#"vault = "~/notes""#;
+        let config: PrismConfig = toml::from_str(toml_str).unwrap();
+        assert!(config.plugins.is_empty());
     }
 }
