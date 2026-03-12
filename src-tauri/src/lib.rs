@@ -182,6 +182,7 @@ pub fn run() {
             commands::files::create_daily_note,
             commands::files::list_templates,
             commands::files::create_from_template,
+            commands::files::get_file_headings,
             commands::files::get_backlinks,
             commands::search::fuzzy_search,
             commands::search::vault_search,

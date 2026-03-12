@@ -250,6 +250,56 @@ pub struct BacklinkResult {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct HeadingInfo {
+    pub text: String,
+    pub level: u8,
+}
+
+#[tauri::command]
+pub fn get_file_headings(
+    path: String,
+    config: State<'_, Mutex<PrismConfig>>,
+) -> Result<Vec<HeadingInfo>, String> {
+    let config = config.lock().map_err(|e| e.to_string())?;
+    let full_path = config.vault_path().join(&path);
+    let content = match fs::read_to_string(&full_path) {
+        Ok(c) => c,
+        Err(_) => return Ok(vec![]),
+    };
+
+    let mut headings = Vec::new();
+    let mut in_code_block = false;
+
+    for line in content.lines() {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+            in_code_block = !in_code_block;
+            continue;
+        }
+        if in_code_block {
+            continue;
+        }
+        if let Some(rest) = trimmed.strip_prefix('#') {
+            let mut level: u8 = 1;
+            let mut chars = rest.chars();
+            while chars.as_str().starts_with('#') && level < 6 {
+                chars.next();
+                level += 1;
+            }
+            let remaining = chars.as_str();
+            if !remaining.starts_with('#') && (remaining.starts_with(' ') || remaining.starts_with('\t')) {
+                let text = remaining.trim().to_string();
+                if !text.is_empty() {
+                    headings.push(HeadingInfo { text, level });
+                }
+            }
+        }
+    }
+
+    Ok(headings)
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct TemplateMeta {
     pub name: String,
     pub path: String,
