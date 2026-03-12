@@ -244,6 +244,109 @@ pub struct BacklinkResult {
     pub context: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct TemplateMeta {
+    pub name: String,
+    pub path: String,
+}
+
+fn expand_template_vars(content: &str, title: &str) -> String {
+    let now = chrono::Local::now();
+    content
+        .replace("{{title}}", title)
+        .replace("{{date}}", &now.format("%Y-%m-%d").to_string())
+        .replace("{{time}}", &now.format("%H:%M").to_string())
+        .replace("{{datetime}}", &now.format("%Y-%m-%d %H:%M").to_string())
+}
+
+#[tauri::command]
+pub fn list_templates(config: State<'_, Mutex<PrismConfig>>) -> Result<Vec<TemplateMeta>, String> {
+    let config = config.lock().map_err(|e| e.to_string())?;
+    let templates_dir = config.vault_path().join("templates");
+    if !templates_dir.exists() {
+        return Ok(vec![]);
+    }
+    let mut templates = Vec::new();
+    let entries = fs::read_dir(&templates_dir)
+        .map_err(|e| format!("Failed to read templates dir: {e}"))?;
+    for entry in entries.filter_map(|e| e.ok()) {
+        let path = entry.path();
+        if path.extension().is_some_and(|ext| ext == "md") {
+            let name = path
+                .file_stem()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
+            let rel = format!("templates/{}.md", name);
+            templates.push(TemplateMeta { name, path: rel });
+        }
+    }
+    templates.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(templates)
+}
+
+#[tauri::command]
+pub fn create_from_template(
+    template_name: String,
+    dest_path: String,
+    config: State<'_, Mutex<PrismConfig>>,
+) -> Result<String, String> {
+    let config = config.lock().map_err(|e| e.to_string())?;
+    let vault = config.vault_path();
+
+    // Read template
+    let template_file = vault.join("templates").join(format!("{template_name}.md"));
+    let template_content = fs::read_to_string(&template_file)
+        .map_err(|e| format!("Failed to read template: {e}"))?;
+
+    // Derive title from dest filename
+    let title = Path::new(&dest_path)
+        .file_stem()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
+
+    let expanded = expand_template_vars(&template_content, &title);
+
+    // Ensure dest has .md extension
+    let dest = if dest_path.ends_with(".md") {
+        dest_path.clone()
+    } else {
+        format!("{dest_path}.md")
+    };
+
+    let full_path = vault.join(&dest);
+
+    // Create parent directories
+    if let Some(parent) = full_path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create directories: {e}"))?;
+    }
+
+    // Handle name collisions
+    if !full_path.exists() {
+        fs::write(&full_path, &expanded)
+            .map_err(|e| format!("Failed to create file: {e}"))?;
+        return Ok(dest);
+    }
+
+    let stem = full_path.file_stem().unwrap_or_default().to_string_lossy().to_string();
+    let ext = full_path.extension().map(|e| format!(".{}", e.to_string_lossy())).unwrap_or_default();
+    let parent = full_path.parent().unwrap();
+
+    for i in 1..100 {
+        let candidate = parent.join(format!("{stem}-{i}{ext}"));
+        if !candidate.exists() {
+            fs::write(&candidate, &expanded)
+                .map_err(|e| format!("Failed to create file: {e}"))?;
+            let rel = candidate.strip_prefix(&vault).unwrap_or(&candidate);
+            return Ok(rel.to_string_lossy().to_string());
+        }
+    }
+
+    Err("Too many files with the same name".to_string())
+}
+
 fn scan_backlinks(
     dir: &Path,
     vault: &Path,
