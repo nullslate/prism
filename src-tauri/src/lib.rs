@@ -180,6 +180,8 @@ pub fn run() {
             commands::files::resolve_wiki_link,
             commands::files::append_to_inbox,
             commands::files::create_daily_note,
+            commands::files::list_templates,
+            commands::files::create_from_template,
             commands::files::get_backlinks,
             commands::search::fuzzy_search,
             commands::search::vault_search,

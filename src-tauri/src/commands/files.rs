@@ -33,6 +33,11 @@ fn build_tree(dir: &Path, vault_root: &Path) -> Vec<FileNode> {
             continue;
         }
 
+        // Skip templates directory at vault root
+        if path.is_dir() && name == "templates" && dir == vault_root {
+            continue;
+        }
+
         if path.is_dir() {
             let children = build_tree(&path, vault_root);
             if !children.is_empty() {
@@ -468,7 +473,16 @@ pub fn create_daily_note(config: State<'_, Mutex<PrismConfig>>) -> Result<String
             .map_err(|e| format!("Failed to create daily dir: {e}"))?;
     }
 
-    let content = format!("# {}\n\n", today);
+    // Use template if available
+    let template_path = vault.join("templates/daily.md");
+    let content = if template_path.exists() {
+        let template = fs::read_to_string(&template_path)
+            .map_err(|e| format!("Failed to read daily template: {e}"))?;
+        expand_template_vars(&template, &today)
+    } else {
+        format!("# {}\n\n", today)
+    };
+
     fs::write(&full_path, content)
         .map_err(|e| format!("Failed to create daily note: {e}"))?;
 
