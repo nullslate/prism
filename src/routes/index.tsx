@@ -22,6 +22,7 @@ import { LinkGraph } from "@/components/link-graph";
 import { useToast } from "@/components/toast";
 import { commands } from "@/lib/tauri";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -175,6 +176,18 @@ function ReaderView() {
     }
   }, [openFile]);
 
+  const setVault = useCallback(async () => {
+    const selected = await openDialog({
+      directory: true,
+      multiple: false,
+      title: "Select Vault Folder",
+    });
+    if (!selected || !config) return;
+    await commands.setConfig({ ...config, vault: selected });
+    toast.info(`Vault: ${selected}`);
+    // Config watcher will trigger reload
+  }, [config, toast]);
+
   const cycleTheme = useCallback(async () => {
     if (!config) return;
     try {
@@ -270,6 +283,12 @@ function ReaderView() {
         action: () => dispatch({ type: "SET_OVERLAY", overlay: "tags" }),
       },
       {
+        id: "set-vault",
+        label: "Set Vault Folder",
+        shortcut: shortcutLabel("set-vault"),
+        action: () => setVault(),
+      },
+      {
         id: "open-config",
         label: "Open Config",
         action: () => commands.openConfigInEditor(),
@@ -316,7 +335,7 @@ function ReaderView() {
         },
       },
     ],
-    [currentPath, currentFileName, toggleFavorite, refreshFiles, dispatch, trashCurrentFile, cycleTheme, openFile, shortcutLabel, state.sidebarVisible],
+    [currentPath, currentFileName, toggleFavorite, refreshFiles, dispatch, trashCurrentFile, cycleTheme, setVault, openFile, shortcutLabel, state.sidebarVisible],
   );
 
   const shortcutMaps: ShortcutMaps = useMemo(() => {
@@ -330,6 +349,7 @@ function ReaderView() {
       "link-graph": () => dispatch({ type: "SET_OVERLAY", overlay: "graph" }),
       "cycle-theme": () => cycleTheme(),
       "vault-search": () => dispatch({ type: "SET_OVERLAY", overlay: "vault-search" }),
+      "set-vault": () => setVault(),
       "close-overlay": () => dispatch({ type: "CLOSE_OVERLAY" }),
     };
 
@@ -401,6 +421,7 @@ function ReaderView() {
     pendingTrash,
     trashCurrentFile,
     cycleTheme,
+    setVault,
   ]);
 
   useShortcuts(shortcutMaps, state.editorOpen ? "editor" : "render", dispatch);

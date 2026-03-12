@@ -51,6 +51,7 @@ impl ShortcutConfig {
             ("link-graph".into(), "ctrl+g".into()),
             ("cycle-theme".into(), "ctrl+shift+t".into()),
             ("vault-search".into(), "ctrl+s".into()),
+            ("set-vault".into(), "ctrl+o".into()),
             ("close-overlay".into(), "escape".into()),
         ]);
         let render = HashMap::from([

@@ -53,6 +53,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
         .manage(Mutex::new(config))
         .setup(|app| {
             use tauri::Manager;
@@ -62,35 +63,30 @@ pub fn run() {
             let vault_path = config.vault_path();
 
             if let Some(window) = app.get_webview_window("main") {
-                // Apply window config
                 let win_cfg = &config.window;
-                let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize {
-                    width: win_cfg.width,
-                    height: win_cfg.height,
+                let w = win_cfg.width as f64;
+                let h = win_cfg.height as f64;
+                let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize {
+                    width: w,
+                    height: h,
                 }));
                 let _ = window.set_always_on_top(win_cfg.always_on_top);
 
-                // Position window
-                if let Ok(monitor) = window.current_monitor() {
-                    if let Some(monitor) = monitor {
-                        let screen = monitor.size();
-                        let scale = monitor.scale_factor();
-                        let w = (win_cfg.width as f64 * scale) as i32;
-                        let h = (win_cfg.height as f64 * scale) as i32;
-                        let sw = screen.width as i32;
-                        let sh = screen.height as i32;
-                        let (x, y) = match win_cfg.position.as_str() {
-                            "top-left" => (0, 0),
-                            "top-right" => (sw - w, 0),
-                            "bottom-left" => (0, sh - h),
-                            "bottom-right" => (sw - w, sh - h),
-                            "center" => ((sw - w) / 2, (sh - h) / 2),
-                            _ => (sw - w, 0), // default top-right
-                        };
-                        let _ = window.set_position(tauri::Position::Physical(
-                            tauri::PhysicalPosition { x, y },
-                        ));
-                    }
+                if let Ok(Some(monitor)) = window.current_monitor() {
+                    let scale = monitor.scale_factor();
+                    let sw = monitor.size().width as f64 / scale;
+                    let sh = monitor.size().height as f64 / scale;
+                    let (x, y) = match win_cfg.position.as_str() {
+                        "top-left" => (0.0, 0.0),
+                        "top-right" => (sw - w, 0.0),
+                        "bottom-left" => (0.0, sh - h),
+                        "bottom-right" => (sw - w, sh - h),
+                        "center" => ((sw - w) / 2.0, (sh - h) / 2.0),
+                        _ => (sw - w, 0.0),
+                    };
+                    let _ = window.set_position(tauri::Position::Logical(
+                        tauri::LogicalPosition { x, y },
+                    ));
                 }
 
                 let _ = window.show();

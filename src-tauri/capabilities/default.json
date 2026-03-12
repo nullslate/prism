@@ -13,6 +13,7 @@
     "core:window:allow-close",
     "core:window:allow-set-always-on-top",
     "core:window:allow-set-focus",
-    "global-shortcut:default"
+    "global-shortcut:default",
+    "dialog:default"
   ]
 }
