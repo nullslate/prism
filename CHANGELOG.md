@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.1] - 2026-03-12
+
+### Features
+
+- Todo shortcuts in editor: `Space tt` toggle, `Space tn` new todo, `Space ta` wrap line as todo
+- Todo toggle in render mode: `tt` toggles nearest checkbox
+- Wiki link transclusion preview: hover a `[[link]]` to see the first 20 lines of the target note
+- Styled GFM checkboxes with themed accent colors
+
+### Fixed
+
+- Vendor Lua 5.4 source (mlua `vendored` feature) to fix CI builds on macOS/Windows
+
 ## [0.4.0] - 2026-03-12
 
 ### Features
