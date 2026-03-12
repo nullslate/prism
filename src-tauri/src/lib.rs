@@ -1,5 +1,6 @@
 mod commands;
 mod config;
+mod plugins;
 mod theme;
 mod watcher;
 
