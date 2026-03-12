@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.5.0] - 2026-03-12
+
+### Features
+
+- Live theme picker: browse themes with instant preview, Enter to save, Escape to revert
+- 11 new built-in themes from sandybridge.io: dracula, alucard, nord, one-dark, solarized-dark, solarized-light, prism-dark, oil-spill, gruvbox-light, nord-light, catppuccin-latte, one-light
+- Full-screen keyboard-driven file browser (j/k nav, o/Enter open, h/l collapse/expand, dd trash, R rename, g/G jump top/bottom)
+
+### Fixed
+
+- Ctrl+Shift keyboard shortcuts (e.g. Ctrl+Shift+T) now match config key format correctly
+- File browser cursor no longer jumps to current file when expanding/collapsing folders
+- Keyboard shortcuts (Escape, Ctrl+B, etc.) work correctly when file browser is open
+
 ## [0.4.1] - 2026-03-12
 
 ### Features
