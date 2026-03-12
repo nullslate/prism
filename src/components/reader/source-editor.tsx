@@ -8,6 +8,8 @@ import { keymap, Decoration, type DecorationSet } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
 import { vim, Vim, getCM } from "@replit/codemirror-vim";
 import { commands } from "@/lib/tauri";
+import { autocompletion, type CompletionContext, type CompletionResult } from "@codemirror/autocomplete";
+import type { FileNode } from "@/lib/types";
 
 interface SourceEditorProps {
   content: string;
@@ -245,7 +247,117 @@ const prismTheme = EditorView.theme({
     backgroundColor: "color-mix(in srgb, var(--prism-accent) 40%, transparent)",
     borderRadius: "2px",
   },
+  ".cm-tooltip.cm-tooltip-autocomplete": {
+    backgroundColor: "var(--prism-bg)",
+    border: "1px solid var(--prism-border)",
+    fontFamily: "var(--font-mono)",
+    fontSize: "13px",
+  },
+  ".cm-tooltip-autocomplete ul li": {
+    color: "var(--prism-fg)",
+  },
+  ".cm-tooltip-autocomplete ul li[aria-selected]": {
+    backgroundColor: "var(--prism-selection)",
+    color: "var(--prism-fg)",
+  },
+  ".cm-completionLabel": {
+    color: "var(--prism-fg)",
+  },
+  ".cm-completionDetail": {
+    color: "var(--prism-muted)",
+    fontStyle: "normal",
+    marginLeft: "0.5em",
+  },
 });
+
+// --- Wiki link autocomplete ---
+
+function flattenFiles(nodes: FileNode[]): { name: string; path: string }[] {
+  const result: { name: string; path: string }[] = [];
+  for (const node of nodes) {
+    if (node.is_dir) {
+      result.push(...flattenFiles(node.children));
+    } else {
+      const name = node.name.replace(/\.md$/, "");
+      result.push({ name, path: node.path });
+    }
+  }
+  return result;
+}
+
+async function wikiLinkCompletionSource(
+  context: CompletionContext,
+): Promise<CompletionResult | null> {
+  const line = context.state.doc.lineAt(context.pos);
+  const textBefore = line.text.slice(0, context.pos - line.from);
+  const bracketIdx = textBefore.lastIndexOf("[[");
+  if (bracketIdx === -1) return null;
+
+  const afterBracket = textBefore.slice(bracketIdx + 2);
+  if (afterBracket.includes("]]")) return null;
+
+  const from = line.from + bracketIdx + 2;
+  const query = afterBracket;
+  const hashIdx = query.indexOf("#");
+
+  if (hashIdx >= 0) {
+    const fileName = query.slice(0, hashIdx);
+    const headingQuery = query.slice(hashIdx + 1).toLowerCase();
+
+    try {
+      const resolved = await commands.resolveWikiLink(fileName);
+      if (!resolved) return { from: from + hashIdx + 1, options: [] };
+
+      const headings = await commands.getFileHeadings(resolved);
+      const options = headings
+        .filter((h) => h.text.toLowerCase().includes(headingQuery))
+        .map((h) => ({
+          label: h.text,
+          detail: `H${h.level}`,
+          apply: (view: EditorView, _completion: any, f: number, to: number) => {
+            view.dispatch({
+              changes: { from: f, to, insert: `${h.text}]]` },
+            });
+          },
+        }));
+
+      return { from: from + hashIdx + 1, options };
+    } catch {
+      return null;
+    }
+  }
+
+  try {
+    let options;
+    if (query.length === 0) {
+      const tree = await commands.listFiles();
+      const files = flattenFiles(tree);
+      options = files.map((f) => ({
+        label: f.name,
+        detail: f.path,
+        apply: (view: EditorView, _completion: any, f2: number, to: number) => {
+          view.dispatch({
+            changes: { from: f2, to, insert: `${f.name}]]` },
+          });
+        },
+      }));
+    } else {
+      const results = await commands.fuzzySearch(query);
+      options = results.map((r) => ({
+        label: r.name,
+        detail: r.path,
+        apply: (view: EditorView, _completion: any, f2: number, to: number) => {
+          view.dispatch({
+            changes: { from: f2, to, insert: `${r.name}]]` },
+          });
+        },
+      }));
+    }
+    return { from, options };
+  } catch {
+    return null;
+  }
+}
 
 export function SourceEditor({ content, filePath, scrollLine, onSave, onExit }: SourceEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -307,6 +419,10 @@ export function SourceEditor({ content, filePath, scrollLine, onSave, onExit }: 
         highlightActiveLineGutter(),
         yankFlashField,
         imagePasteHandler(),
+        autocompletion({
+          override: [wikiLinkCompletionSource],
+          activateOnTyping: true,
+        }),
       ],
     });
 
