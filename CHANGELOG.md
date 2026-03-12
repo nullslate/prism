@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.1] - 2026-03-11
+
+### Features
+
+- Set vault folder from within the app via native folder picker (Ctrl+O or command palette)
+
+### Fixed
+
+- Window positioning and always-on-top now applied from config on launch
+- Window size correct on HiDPI/Retina displays (use logical coordinates)
+
 ## [0.2.0] - 2026-03-11
 
 ### Features
