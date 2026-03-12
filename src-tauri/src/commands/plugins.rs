@@ -1,4 +1,5 @@
 use crate::config::PrismConfig;
+use crate::plugins::lua_runtime::LuaRuntime;
 use crate::plugins::manager::PluginManager;
 use crate::plugins::{PluginCommand, PluginInfo, PluginStatusItem};
 use std::sync::Mutex;
@@ -73,9 +74,11 @@ pub fn clean_plugins(
 
 #[tauri::command]
 pub fn plugin_emit(
-    _event: String,
-    _data: Option<serde_json::Value>,
+    event: String,
+    data: Option<serde_json::Value>,
+    lua_runtime: State<'_, Mutex<LuaRuntime>>,
 ) -> Result<(), String> {
-    // Will integrate with event bus
+    let runtime = lua_runtime.lock().map_err(|e| e.to_string())?;
+    runtime.dispatch(&event, data);
     Ok(())
 }

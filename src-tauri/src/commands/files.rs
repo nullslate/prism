@@ -1,4 +1,5 @@
 use crate::config::PrismConfig;
+use crate::plugins::lua_runtime::LuaRuntime;
 use serde::Serialize;
 use std::fs;
 use std::path::Path;
@@ -73,10 +74,26 @@ pub fn list_files(config: State<'_, Mutex<PrismConfig>>) -> Result<Vec<FileNode>
 }
 
 #[tauri::command]
-pub fn read_file(path: String, config: State<'_, Mutex<PrismConfig>>) -> Result<String, String> {
+pub fn read_file(
+    path: String,
+    config: State<'_, Mutex<PrismConfig>>,
+    lua_runtime: State<'_, Mutex<LuaRuntime>>,
+) -> Result<String, String> {
     let config = config.lock().map_err(|e| e.to_string())?;
     let full_path = config.vault_path().join(&path);
-    fs::read_to_string(&full_path).map_err(|e| format!("Failed to read {}: {}", path, e))
+    let content = fs::read_to_string(&full_path)
+        .map_err(|e| format!("Failed to read {}: {}", path, e))?;
+
+    if path.ends_with(".md") {
+        let name = Path::new(&path)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or(&path);
+        let runtime = lua_runtime.lock().map_err(|e| e.to_string())?;
+        Ok(runtime.dispatch_pre_render(&path, name, content))
+    } else {
+        Ok(content)
+    }
 }
 
 #[tauri::command]

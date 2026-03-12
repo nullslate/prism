@@ -5,6 +5,7 @@ mod theme;
 mod watcher;
 
 use config::PrismConfig;
+use plugins::lua_runtime::LuaRuntime;
 use std::sync::Mutex;
 use tauri::Emitter;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut};
@@ -54,6 +55,49 @@ pub fn run() {
     let mut plugin_manager = plugins::manager::PluginManager::new();
     plugin_manager.discover(&config.plugins);
 
+    // Collect plugin load data before plugin_manager is moved into .manage()
+    let lua_plugins: Vec<(String, std::path::PathBuf, String, toml::Value)> = plugin_manager
+        .plugins
+        .iter()
+        .filter_map(|(name, info)| {
+            if !info.enabled || info.error.is_some() {
+                return None;
+            }
+            info.entry.as_ref().map(|entry| {
+                let opts = config.plugins.iter()
+                    .find(|s| s.name == *name)
+                    .map(|s| s.opts.clone())
+                    .unwrap_or_else(|| toml::Value::Table(toml::map::Map::new()));
+                (name.clone(), info.path.clone(), entry.clone(), opts)
+            })
+        })
+        .collect();
+
+    // Create channels for plugin commands and status items
+    let (command_tx, _command_rx) = std::sync::mpsc::channel();
+    let (status_tx, _status_rx) = std::sync::mpsc::channel();
+
+    let mut lua_runtime = LuaRuntime::new(config.vault_path(), command_tx, status_tx);
+    let mut plugin_errors: Vec<(String, String)> = vec![];
+
+    for (name, path, entry, opts) in &lua_plugins {
+        match lua_runtime.load_plugin(name, path, entry, opts) {
+            Ok(()) => {
+                if let Some(info) = plugin_manager.plugins.get_mut(name) {
+                    info.loaded = true;
+                }
+                eprintln!("[prism] loaded plugin: {}", name);
+            }
+            Err(e) => {
+                eprintln!("[prism] failed to load plugin '{}': {}", name, e);
+                if let Some(info) = plugin_manager.plugins.get_mut(name) {
+                    info.error = Some(e.clone());
+                }
+                plugin_errors.push((name.clone(), e));
+            }
+        }
+    }
+
     // Build a map of plugin name -> actual directory for the protocol handler
     let plugin_paths: std::collections::HashMap<String, std::path::PathBuf> = plugin_manager
         .plugins
@@ -93,7 +137,8 @@ pub fn run() {
         })
         .manage(Mutex::new(config))
         .manage(Mutex::new(plugin_manager))
-        .setup(|app| {
+        .manage(Mutex::new(lua_runtime))
+        .setup(move |app| {
             use tauri::Manager;
 
             let config = app.state::<Mutex<PrismConfig>>();
@@ -160,6 +205,14 @@ pub fn run() {
                         }
                     }
                 }).ok();
+            }
+
+            // Notify frontend of any plugin load errors
+            for (name, error) in &plugin_errors {
+                let _ = app.emit("plugin-error", serde_json::json!({
+                    "plugin": name,
+                    "error": error,
+                }));
             }
 
             Ok(())
