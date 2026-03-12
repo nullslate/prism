@@ -37,7 +37,7 @@ export function useShortcuts(
       if (isEditorFocused()) return;
 
       if (e.key === "Escape") {
-        const handler = maps.global?.escape ?? maps[mode]?.escape;
+        const handler = maps[mode]?.escape ?? maps.global?.escape;
         if (handler) {
           e.preventDefault();
           handler();

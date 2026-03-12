@@ -531,15 +531,13 @@ function ReaderView() {
     };
 
     const sc = shortcuts ?? { global: {}, render: {} };
-    // Sidebar mode: only escape to close
-    const sidebarActions: Record<string, () => void> = {
-      escape: () => dispatch({ type: "TOGGLE_SIDEBAR" }),
-    };
-
     return {
       global: buildKeyMap(globalActions, sc.global),
       render: buildKeyMap(renderActions, sc.render),
-      sidebar: { escape: sidebarActions.escape },
+      sidebar: {
+        escape: () => dispatch({ type: "TOGGLE_SIDEBAR" }),
+        q: () => dispatch({ type: "TOGGLE_SIDEBAR" }),
+      },
     };
   }, [
     shortcuts,

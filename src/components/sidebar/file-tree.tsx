@@ -141,6 +141,9 @@ export const FileTree = memo(function FileTree({
     (e: KeyboardEvent) => {
       if (!active || items.length === 0) return;
 
+      // Let all modifier combos through to useShortcuts (Ctrl+B, Ctrl+F, etc.)
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+
       // When renaming, only handle escape and enter
       if (renaming) {
         if (e.key === "Escape") {
@@ -154,82 +157,79 @@ export const FileTree = memo(function FileTree({
       const item = items[cursor];
       if (!item) return;
 
-      switch (e.key) {
-        case "j":
-          e.preventDefault();
-          setCursor((c) => Math.min(c + 1, items.length - 1));
-          setPendingTrash(null);
-          break;
-        case "k":
-          e.preventDefault();
-          setCursor((c) => Math.max(c - 1, 0));
-          setPendingTrash(null);
-          break;
-        case "o":
-        case "Enter":
-          e.preventDefault();
-          if (item.node.is_dir) {
-            toggleDir(item.node.path);
-          } else {
-            onSelect(item.node.path);
-          }
-          break;
-        case "l":
-          e.preventDefault();
-          if (item.node.is_dir) {
-            expandDir(item.node.path);
-          }
-          break;
-        case "h":
-          e.preventDefault();
-          if (item.node.is_dir && item.expanded) {
-            collapseDir(item.node.path);
-          } else if (item.depth > 0) {
-            // Jump to parent dir
-            for (let i = cursor - 1; i >= 0; i--) {
-              if (items[i].node.is_dir && items[i].depth < item.depth) {
-                setCursor(i);
-                break;
+      // Only handle keys we own — let everything else pass through
+      const handled = (() => {
+        switch (e.key) {
+          case "j":
+            setCursor((c) => Math.min(c + 1, items.length - 1));
+            setPendingTrash(null);
+            return true;
+          case "k":
+            setCursor((c) => Math.max(c - 1, 0));
+            setPendingTrash(null);
+            return true;
+          case "o":
+          case "Enter":
+            if (item.node.is_dir) {
+              toggleDir(item.node.path);
+            } else {
+              onSelect(item.node.path);
+            }
+            return true;
+          case "l":
+            if (item.node.is_dir) {
+              expandDir(item.node.path);
+            }
+            return true;
+          case "h":
+            if (item.node.is_dir && item.expanded) {
+              collapseDir(item.node.path);
+            } else if (item.depth > 0) {
+              for (let i = cursor - 1; i >= 0; i--) {
+                if (items[i].node.is_dir && items[i].depth < item.depth) {
+                  setCursor(i);
+                  break;
+                }
               }
             }
-          }
-          break;
-        case " ":
-          e.preventDefault();
-          if (item.node.is_dir) {
-            toggleDir(item.node.path);
-          }
-          break;
-        case "d":
-          e.preventDefault();
-          if (!item.node.is_dir) {
-            if (pendingTrash === item.node.path) {
-              if (pendingTrashTimer.current) clearTimeout(pendingTrashTimer.current);
-              setPendingTrash(null);
-              onTrash?.(item.node.path);
-            } else {
-              setPendingTrash(item.node.path);
-              if (pendingTrashTimer.current) clearTimeout(pendingTrashTimer.current);
-              pendingTrashTimer.current = setTimeout(() => setPendingTrash(null), 2000);
+            return true;
+          case " ":
+            if (item.node.is_dir) {
+              toggleDir(item.node.path);
             }
-          }
-          break;
-        case "R":
-          e.preventDefault();
-          if (!item.node.is_dir) {
-            setRenaming(item.node.path);
-            setRenameValue(item.node.path);
-          }
-          break;
-        case "g":
-          // gg to go to top — handled by sequence in use-shortcuts, but we handle it here directly
-          e.preventDefault();
-          setCursor(0);
-          break;
-        case "G":
-          e.preventDefault();
-          setCursor(items.length - 1);
-          break;
+            return true;
+          case "d":
+            if (!item.node.is_dir) {
+              if (pendingTrash === item.node.path) {
+                if (pendingTrashTimer.current) clearTimeout(pendingTrashTimer.current);
+                setPendingTrash(null);
+                onTrash?.(item.node.path);
+              } else {
+                setPendingTrash(item.node.path);
+                if (pendingTrashTimer.current) clearTimeout(pendingTrashTimer.current);
+                pendingTrashTimer.current = setTimeout(() => setPendingTrash(null), 2000);
+              }
+            }
+            return true;
+          case "R":
+            if (!item.node.is_dir) {
+              setRenaming(item.node.path);
+              setRenameValue(item.node.path);
+            }
+            return true;
+          case "g":
+            setCursor(0);
+            return true;
+          case "G":
+            setCursor(items.length - 1);
+            return true;
+          default:
+            return false;
+        }
+      })();
+
+      if (handled) {
+        e.preventDefault();
       }
     },
     [active, items, cursor, renaming, pendingTrash, toggleDir, expandDir, collapseDir, onSelect, onTrash],
