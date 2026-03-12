@@ -1,6 +1,7 @@
 pub mod events;
 pub mod lua_runtime;
 pub mod manager;
+pub mod protocol;
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
