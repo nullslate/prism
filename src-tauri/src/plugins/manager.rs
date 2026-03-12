@@ -43,21 +43,23 @@ impl PluginManager {
                         error: Some(e),
                         commands: vec![],
                         status_items: vec![],
+                        entry: None,
                     });
                     continue;
                 }
             };
 
             let manifest = self.read_manifest(&plugin_dir);
-            let (commands, version, description) = match &manifest {
+            let (commands, version, description, entry) = match &manifest {
                 Ok(m) => (
                     m.plugin.hooks.as_ref()
                         .map(|h| h.commands.clone())
                         .unwrap_or_default(),
                     m.plugin.version.clone(),
                     m.plugin.description.clone(),
+                    m.plugin.entry.clone(),
                 ),
-                Err(_) => (vec![], String::new(), String::new()),
+                Err(_) => (vec![], String::new(), String::new(), None),
             };
 
             self.plugins.insert(spec.name.clone(), PluginInfo {
@@ -70,6 +72,7 @@ impl PluginManager {
                 error: manifest.err().map(|e| e.to_string()),
                 commands,
                 status_items: vec![],
+                entry,
             });
         }
     }

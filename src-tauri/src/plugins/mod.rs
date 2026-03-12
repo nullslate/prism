@@ -53,6 +53,7 @@ pub struct PluginInfo {
     pub error: Option<String>,
     pub commands: Vec<PluginCommandStub>,
     pub status_items: Vec<PluginStatusItem>,
+    pub entry: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
