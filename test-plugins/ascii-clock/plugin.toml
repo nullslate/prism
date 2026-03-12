@@ -1,0 +1,15 @@
+[plugin]
+name = "ascii-clock"
+version = "0.1.0"
+description = "ASCII art clock in the sidebar"
+entry = "init.lua"
+ui = "ui/"
+
+[plugin.hooks]
+events = []
+commands = [
+  { id = "toggle-clock", label = "Toggle ASCII Clock" },
+]
+
+[plugin.ui]
+sidebar = true
