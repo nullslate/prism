@@ -101,3 +101,34 @@ export interface LinkGraph {
   nodes: GraphNode[];
   edges: GraphEdge[];
 }
+
+export interface PluginInfo {
+  name: string;
+  version: string;
+  description: string;
+  path: string;
+  enabled: boolean;
+  loaded: boolean;
+  error: string | null;
+  commands: PluginCommandStub[];
+  status_items: PluginStatusItem[];
+}
+
+export interface PluginCommandStub {
+  id: string;
+  label: string;
+}
+
+export interface PluginCommand {
+  id: string;
+  label: string;
+  plugin: string;
+  shortcut: string | null;
+}
+
+export interface PluginStatusItem {
+  id: string;
+  plugin: string;
+  align: string;
+  text: string;
+}
