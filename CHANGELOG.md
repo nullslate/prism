@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.3.0] - 2026-03-11
+
+### Features
+
+- Plugin system with Lua scripting (Lua 5.4 via mlua) and React UI extensions
+- Plugin manager with git clone support (`[[plugins]]` in config.toml)
+- Event bus with `file:pre-render` chaining for content transformation
+- `prism` Lua API: `on`, `emit`, `command`, `status`, `toast`, `log`, file ops
+- Custom `prism-plugin://` protocol handler for serving UI bundles
+- Plugin commands appear in command palette automatically
+- Plugin status items render in status bar
+- Plugin sidebar panels with error boundaries
+- "Update Plugins" and "Clean Unused Plugins" commands in palette
+- `@prism/plugin-sdk` npm package with themed components (Panel, List, Input, Button, Text, Overlay) and hooks (usePlugin, usePluginContext)
+- Hello-world test plugin for development reference
+
+### Docs
+
+- Plugin system design spec and implementation plan
+
 ## [0.2.1] - 2026-03-11
 
 ### Features

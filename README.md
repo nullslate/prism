@@ -231,6 +231,38 @@ Press `n` to open the current file in your configured editor. Prism hides, spawn
 
 Highlights all matches in the current file with a match counter. Navigate between matches with the overlay controls.
 
+### Plugins
+
+Prism supports Lua scripts and React UI extensions. Add plugins to your config:
+
+```toml
+[[plugins]]
+name = "word-count"
+path = "~/.config/prism/plugins/word-count"
+
+[[plugins]]
+name = "daily-summary"
+git = "https://github.com/someone/prism-daily-summary"
+
+[plugins.opts]
+template = "## {{date}}"
+auto_open = true
+
+[plugins.lazy]
+event = "file:opened"
+```
+
+Plugins can:
+- Register commands in the command palette
+- Add status bar items
+- Listen to events (`file:opened`, `file:saved`, `file:pre-render`, etc.)
+- Transform content before rendering
+- Add sidebar panels and overlays (React UI)
+
+Each plugin has a `plugin.toml` manifest and an optional `init.lua` entry point. See `test-plugins/hello-world/` for an example.
+
+Plugin authors can use the `@prism/plugin-sdk` package for themed React UI components.
+
 ### Custom Themes
 
 Create `~/.config/prism/themes/my-theme.toml`:
@@ -267,15 +299,22 @@ prism/
 │   │   ├── config.rs           # TOML config management
 │   │   ├── watcher.rs          # File system watcher (vault + config)
 │   │   ├── theme.rs            # Theme loading (builtin + custom)
-│   │   └── commands/
-│   │       ├── files.rs        # File ops, trash, wiki link resolution, inbox
-│   │       ├── search.rs       # Fuzzy search (nucleo-matcher)
-│   │       ├── editor.rs       # Editor handoff, open config
-│   │       ├── tags.rs         # Tag extraction and filtering
-│   │       ├── config.rs       # Config get/set/reload
-│   │       ├── clipboard.rs    # Wayland clipboard (wl-copy)
-│   │       ├── favorites.rs    # Favorites management
-│   │       └── theme.rs        # Theme command
+│   │   ├── commands/
+│   │   │   ├── files.rs        # File ops, trash, wiki link resolution, inbox
+│   │   │   ├── search.rs       # Fuzzy search (nucleo-matcher)
+│   │   │   ├── editor.rs       # Editor handoff, open config
+│   │   │   ├── tags.rs         # Tag extraction and filtering
+│   │   │   ├── config.rs       # Config get/set/reload
+│   │   │   ├── clipboard.rs    # Wayland clipboard (wl-copy)
+│   │   │   ├── favorites.rs    # Favorites management
+│   │   │   ├── plugins.rs      # Plugin management commands
+│   │   │   └── theme.rs        # Theme command
+│   │   └── plugins/
+│   │       ├── mod.rs          # Plugin types (PluginManifest, PluginInfo, etc.)
+│   │       ├── manager.rs      # Plugin discovery, git clone/pull, lifecycle
+│   │       ├── events.rs       # Event bus, pre-render chaining
+│   │       ├── lua_runtime.rs  # Lua 5.4 embedding, prism API
+│   │       └── protocol.rs     # prism-plugin:// protocol handler
 │   ├── Cargo.toml
 │   └── capabilities/
 │       └── default.json
@@ -293,6 +332,8 @@ prism/
 │   │   │   ├── file-finder.tsx # Ctrl+P fuzzy search
 │   │   │   └── in-file.tsx     # In-file search overlay
 │   │   ├── command-palette.tsx
+│   │   ├── plugin-panel.tsx    # Plugin error boundary
+│   │   ├── plugin-overlay.tsx  # Plugin overlay wrapper
 │   │   ├── tag-filter.tsx
 │   │   ├── quick-capture.tsx
 │   │   └── new-file-dialog.tsx
@@ -304,7 +345,12 @@ prism/
 │       ├── tauri.ts            # Tauri command wrappers
 │       ├── types.ts            # TypeScript types
 │       ├── reader-state.ts     # UI state machine
+│       ├── plugin-loader.ts    # Plugin UI bundle loader
 │       └── remark-wiki-links.ts # [[wiki link]] remark plugin
+├── packages/
+│   └── plugin-sdk/             # @prism/plugin-sdk for plugin authors
+├── test-plugins/
+│   └── hello-world/            # Example plugin
 └── package.json
 ```
 
