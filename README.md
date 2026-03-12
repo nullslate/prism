@@ -1,19 +1,36 @@
+<div align="center">
+
 # Prism
 
-A lightweight markdown vault reader built with Tauri 2, React, and TypeScript. Designed for keyboard-driven workflows with vim-style navigation, fuzzy search, and a minimal always-on-top window.
+**A keyboard-driven markdown vault reader**
+
+Built with Tauri 2 + React + Rust
+
+[![Build](https://github.com/thesandybridge/prism/actions/workflows/build.yml/badge.svg)](https://github.com/thesandybridge/prism/actions/workflows/build.yml)
+[![Release](https://img.shields.io/github/v/release/thesandybridge/prism?include_prereleases&label=latest)](https://github.com/thesandybridge/prism/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-lightgrey)]()
+
+</div>
+
+---
+
+Prism is a fast, minimal desktop app for reading and navigating markdown vaults. It stays out of the way as an always-on-top sidebar with vim-style keybindings, fuzzy search, wiki-style linking, and a Lua plugin system.
+
+It reads your existing Obsidian, Logseq, or plain-markdown vault. It doesn't write to it unless you ask.
 
 ## Install
 
-Download the latest release from the [GitHub Releases](https://github.com/thesandybridge/prism/releases) page.
+Download the latest release from [GitHub Releases](https://github.com/thesandybridge/prism/releases/latest).
 
-| Platform | Format | Instructions |
-|----------|--------|-------------|
-| **macOS** | `.dmg` | Open the `.dmg` and drag Prism to Applications |
-| **Windows** | `.msi` | Run the installer |
-| **Linux (Debian/Ubuntu)** | `.deb` | `sudo dpkg -i Prism_x.x.x_amd64.deb` |
-| **Linux (other)** | `.AppImage` | `chmod +x Prism_x.x.x_amd64.AppImage && ./Prism_x.x.x_amd64.AppImage` |
+| Platform | Format | Install |
+|----------|--------|---------|
+| macOS | `.dmg` | Open and drag to Applications |
+| Windows | `.msi` | Run the installer |
+| Linux (Debian/Ubuntu) | `.deb` | `sudo dpkg -i Prism_*.deb` |
+| Linux (other) | `.AppImage` | `chmod +x Prism_*.AppImage && ./Prism_*.AppImage` |
 
-> **Linux (Wayland + Nvidia):** If you see rendering issues, set `WEBKIT_DISABLE_DMABUF_RENDERER=1` before launching.
+> **Linux (Wayland + Nvidia):** Set `WEBKIT_DISABLE_DMABUF_RENDERER=1` if you see rendering issues.
 
 ### Build from Source
 
@@ -26,246 +43,71 @@ npm install
 npm run tauri build
 ```
 
-The binary will be in `src-tauri/target/release/prism`.
-
-For development:
+Development mode with hot reload:
 
 ```sh
 npm run tauri dev
 ```
 
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| **Fuzzy search** | File names, paths, and content ranked by score (`Ctrl+F`) |
+| **Wiki links** | `[[note]]`, `[[path/note]]`, `[[note\|display text]]`, `[[note#heading]]` with autocomplete |
+| **Tags** | Extracted from frontmatter and inline `#tags`, filterable (`Ctrl+T`) |
+| **Quick capture** | Append timestamped bullets to your inbox (`Ctrl+.`) |
+| **Backlinks** | Sidebar shows all files linking to the current note |
+| **Vault search** | Full-text search with line-number context (`Ctrl+S`) |
+| **Link graph** | Text-based interactive graph explorer (`Ctrl+G`) |
+| **Daily notes** | Create/open today's note from the command palette |
+| **Templates** | Create notes from templates with `{{date}}`, `{{title}}` variable expansion |
+| **Outline** | Heading tree in sidebar, click to jump |
+| **Vim keybindings** | `j/k` scroll, `gg/G` top/bottom, `/` search, `n` open editor |
+| **Editor handoff** | Press `n` to open in your `$EDITOR`, auto-reload on return |
+| **Plugins** | Lua scripting + React UI extensions |
+| **Themes** | 3 built-in (catppuccin-mocha, gruvbox-dark, tokyo-night) + custom TOML themes |
+| **Global hotkey** | Toggle window from any app (`Ctrl+Space`, configurable) |
+| **Command palette** | `Ctrl+K` for everything |
+
 ## Configuration
 
-Prism creates a config file on first launch at `~/.config/prism/config.toml`:
+Config lives at `~/.config/prism/config.toml` (created on first launch):
 
 ```toml
-vault = "~/obsidian"        # Path to your markdown vault
-editor = "nvim"             # Editor for handoff (default: $EDITOR or nvim)
-terminal = "alacritty"      # Terminal to spawn editor in
-theme = "catppuccin-mocha"  # Theme name (builtin or custom)
-inbox = "inbox.md"          # Quick capture target file
-hotkey = "ctrl+space"       # Global hotkey to toggle window
+vault = "~/obsidian"
+editor = "nvim"
+terminal = "alacritty"
+theme = "catppuccin-mocha"
+inbox = "inbox.md"
+hotkey = "ctrl+space"
 
 [window]
 width = 420
 height = 700
 position = "top-right"
 always_on_top = true
-
-[[favorites]]
-path = "daily/scratch.md"
-label = "Scratch"
 ```
 
-Open your config from within Prism via the command palette (`Ctrl+K` > "Open Config").
+Open your config from within Prism: `Ctrl+K` > "Open Config".
 
-### Keyboard Shortcuts
+### Shortcuts
 
-All keyboard shortcuts are configurable. Add a `[shortcuts.global]` or `[shortcuts.render]` section to override defaults — only specify the keys you want to change:
+All keyboard shortcuts are configurable. Override defaults in config:
 
 ```toml
 [shortcuts.global]
 find-file = "ctrl+p"
-vault-search = "ctrl+shift+f"
 
 [shortcuts.render]
 quit = "ctrl+q"
 ```
 
-Set a value to `""` to disable a shortcut.
-
-#### Per-Vault Overrides
-
-Create `.prism.toml` in your vault root to override shortcuts for that vault only:
-
-```toml
-[shortcuts.render]
-quit = "ctrl+q"
-```
-
-Merge order: built-in defaults < system config < vault overrides.
+Per-vault overrides via `.prism.toml` in your vault root. Set a value to `""` to disable.
 
 ### Themes
 
-Three builtin themes: `catppuccin-mocha`, `gruvbox-dark`, `tokyo-night`.
-
-Custom themes go in `~/.config/prism/themes/{name}.toml` — set `theme = "{name}"` in config.
-
-### Favorites
-
-Add up to 9 favorites in config. Access them with `1`-`9` in render mode.
-
-## Keybindings
-
-All shortcuts are [configurable](#keyboard-shortcuts) via config.
-
-### Global (always active)
-
-| Key | Action |
-|-----|--------|
-| `Ctrl+F` | Fuzzy file finder |
-| `Ctrl+K` | Command palette |
-| `Ctrl+B` | Toggle sidebar |
-| `Ctrl+N` | New file |
-| `Ctrl+T` | Filter by tag |
-| `Ctrl+.` | Quick capture |
-| `Ctrl+G` | Link graph |
-| `Ctrl+S` | Search vault |
-| `Ctrl+Shift+T` | Cycle theme |
-| `Ctrl+Space` | Toggle window (global, configurable) |
-| `Escape` | Close overlay |
-
-### Render mode (reading)
-
-| Key | Action |
-|-----|--------|
-| `j` / `k` | Scroll down / up |
-| `h` / `l` | Scroll up / down |
-| `Ctrl+D` / `Ctrl+U` | Half-page down / up |
-| `g g` | Scroll to top |
-| `G` | Scroll to bottom |
-| `n` | Open editor |
-| `/` | Search in file |
-| `d d` | Move current file to trash (press twice to confirm) |
-| `1`-`9` | Open favorite |
-| `q` | Quit |
-
-### Editor mode (CodeMirror + Vim)
-
-| Key | Action |
-|-----|--------|
-| `:w` | Save |
-| `:q` | Exit editor |
-| `:wq` | Save and exit |
-| `Space y` | Yank selection to clipboard |
-| `Space yy` | Yank line to clipboard |
-
-### Overlays (file finder, palette, tag filter)
-
-| Key | Action |
-|-----|--------|
-| `Ctrl+J` / `Arrow Down` | Next item |
-| `Ctrl+K` / `Arrow Up` | Previous item |
-| `Enter` | Select |
-| `Escape` | Close (or go back in tag filter) |
-
-## Features
-
-### Fuzzy File Search (`Ctrl+F`)
-
-Searches file names, paths, and content using nucleo-matcher. Results ranked by score with context preview.
-
-### Wiki-style Note Linking
-
-Link between notes using double-bracket syntax:
-
-```markdown
-[[note-name]]
-[[path/to/note]]
-[[target|display text]]
-```
-
-Links resolve by exact vault-relative path first, then fall back to a vault-wide filename search. Rendered as dotted-underline links — click to navigate.
-
-### Tags & Filtering (`Ctrl+T`)
-
-Tags are extracted from:
-- **Frontmatter**: `tags: [foo, bar]` or YAML list format
-- **Inline**: `#tag` patterns in body text (outside code blocks)
-
-The tag overlay has two phases:
-1. Browse all tags sorted by count, filter by typing
-2. Select a tag to see matching files, select a file to open it
-
-`Escape` goes back from files to tags, then closes.
-
-### Quick Capture (`Ctrl+.`)
-
-Opens a minimal input overlay. Type a note and press `Enter` — it appends a timestamped bullet to your inbox file:
-
-```
-- 2026-03-08 14:30 — your captured text
-```
-
-Configure the target file with `inbox` in config (default: `inbox.md`). Creates the file if it doesn't exist.
-
-### Backlinks
-
-The sidebar shows all files that link to the currently open note via `[[wiki links]]`. Click a backlink to navigate to it.
-
-### Vault Search (`Ctrl+S`)
-
-Full-text search across all files in the vault. Results show file name, line number, and surrounding context.
-
-### Link Graph (`Ctrl+G`)
-
-Interactive text-based explorer showing connections between notes. Navigate with `j`/`k`, press `Enter` to open a linked note, `l` to explore a link's connections.
-
-### Daily Notes
-
-Create or open today's daily note from the command palette. Notes are stored as `daily/YYYY-MM-DD.md`.
-
-### Outline
-
-The sidebar shows a heading tree for the current file. Click a heading to scroll to it.
-
-### Trash / Soft Delete
-
-- `d d` in render mode: press twice within 2 seconds to confirm
-- Hover over a file in the sidebar to reveal a trash button
-- Command palette: "Move to Trash" and "Empty Trash"
-
-Files are moved to `.trash/` inside your vault. The trash directory is hidden from the file tree and search. "Empty Trash" permanently deletes all trashed files.
-
-### Global Hotkey
-
-`Ctrl+Space` (configurable) toggles window visibility from any application. Set `hotkey` in config — changes require app restart.
-
-Supported modifiers: `ctrl`, `alt`, `shift`, `super`/`meta`/`cmd`.
-
-### Editor Handoff
-
-Press `n` to open the current file in your configured editor. Prism hides, spawns `terminal -e editor +{line} {file}`, waits for the editor to exit, then shows the window and reloads the file.
-
-### In-File Search (`/`)
-
-Highlights all matches in the current file with a match counter. Navigate between matches with the overlay controls.
-
-### Plugins
-
-Prism supports Lua scripts and React UI extensions. Add plugins to your config:
-
-```toml
-[[plugins]]
-name = "word-count"
-path = "~/.config/prism/plugins/word-count"
-
-[[plugins]]
-name = "daily-summary"
-git = "https://github.com/someone/prism-daily-summary"
-
-[plugins.opts]
-template = "## {{date}}"
-auto_open = true
-
-[plugins.lazy]
-event = "file:opened"
-```
-
-Plugins can:
-- Register commands in the command palette
-- Add status bar items
-- Listen to events (`file:opened`, `file:saved`, `file:pre-render`, etc.)
-- Transform content before rendering
-- Add sidebar panels and overlays (React UI)
-
-Each plugin has a `plugin.toml` manifest and an optional `init.lua` entry point. See `test-plugins/hello-world/` for an example.
-
-Plugin authors can use the `@prism/plugin-sdk` package for themed React UI components.
-
-### Custom Themes
-
-Create `~/.config/prism/themes/my-theme.toml`:
+Custom themes: `~/.config/prism/themes/{name}.toml`
 
 ```toml
 [colors]
@@ -287,73 +129,105 @@ syntax_type = "#2ac3de"
 syntax_variable = "#c0caf5"
 ```
 
-Then set `theme = "my-theme"` in config.
+Then set `theme = "{name}"` in config.
+
+## Keybindings
+
+<details>
+<summary><strong>Global</strong> (always active)</summary>
+
+| Key | Action |
+|-----|--------|
+| `Ctrl+F` | Fuzzy file finder |
+| `Ctrl+K` | Command palette |
+| `Ctrl+B` | Toggle sidebar |
+| `Ctrl+N` | New file |
+| `Ctrl+T` | Filter by tag |
+| `Ctrl+.` | Quick capture |
+| `Ctrl+G` | Link graph |
+| `Ctrl+S` | Search vault |
+| `Ctrl+Shift+T` | Cycle theme |
+| `Ctrl+Space` | Toggle window (global) |
+| `Escape` | Close overlay |
+
+</details>
+
+<details>
+<summary><strong>Render mode</strong> (reading)</summary>
+
+| Key | Action |
+|-----|--------|
+| `j` / `k` | Scroll down / up |
+| `Ctrl+D` / `Ctrl+U` | Half-page down / up |
+| `gg` | Scroll to top |
+| `G` | Scroll to bottom |
+| `n` | Open editor |
+| `/` | Search in file |
+| `dd` | Trash file (press twice) |
+| `1`-`9` | Open favorite |
+| `q` | Quit |
+
+</details>
+
+<details>
+<summary><strong>Editor mode</strong> (CodeMirror + Vim)</summary>
+
+| Key | Action |
+|-----|--------|
+| `:w` | Save |
+| `:q` | Exit editor |
+| `:wq` | Save and exit |
+| `Space y` | Yank selection |
+| `Space yy` | Yank line |
+| `[[` | Wiki link autocomplete |
+
+</details>
+
+## Plugins
+
+Prism supports Lua scripts and React UI extensions.
+
+```toml
+[[plugins]]
+name = "word-count"
+path = "~/.config/prism/plugins/word-count"
+
+[[plugins]]
+name = "daily-summary"
+git = "https://github.com/someone/prism-daily-summary"
+
+[plugins.opts]
+template = "## {{date}}"
+```
+
+Plugins can register commands, add status bar items, listen to events (`file:pre-render`, `file:opened`, etc.), transform content before rendering, and add sidebar panels.
+
+Each plugin has a `plugin.toml` manifest and an `init.lua` entry point. See `test-plugins/hello-world/` for a working example.
+
+Plugin authors can use `@prism/plugin-sdk` for themed React components.
 
 ## Project Structure
 
 ```
 prism/
-├── src-tauri/
-│   ├── src/
-│   │   ├── lib.rs              # App entry, plugin init, global hotkey
-│   │   ├── config.rs           # TOML config management
-│   │   ├── watcher.rs          # File system watcher (vault + config)
-│   │   ├── theme.rs            # Theme loading (builtin + custom)
-│   │   ├── commands/
-│   │   │   ├── files.rs        # File ops, trash, wiki link resolution, inbox
-│   │   │   ├── search.rs       # Fuzzy search (nucleo-matcher)
-│   │   │   ├── editor.rs       # Editor handoff, open config
-│   │   │   ├── tags.rs         # Tag extraction and filtering
-│   │   │   ├── config.rs       # Config get/set/reload
-│   │   │   ├── clipboard.rs    # Wayland clipboard (wl-copy)
-│   │   │   ├── favorites.rs    # Favorites management
-│   │   │   ├── plugins.rs      # Plugin management commands
-│   │   │   └── theme.rs        # Theme command
-│   │   └── plugins/
-│   │       ├── mod.rs          # Plugin types (PluginManifest, PluginInfo, etc.)
-│   │       ├── manager.rs      # Plugin discovery, git clone/pull, lifecycle
-│   │       ├── events.rs       # Event bus, pre-render chaining
-│   │       ├── lua_runtime.rs  # Lua 5.4 embedding, prism API
-│   │       └── protocol.rs     # prism-plugin:// protocol handler
-│   ├── Cargo.toml
-│   └── capabilities/
-│       └── default.json
-├── src/
-│   ├── routes/
-│   │   └── index.tsx           # Main reader view
-│   ├── components/
-│   │   ├── reader/
-│   │   │   ├── markdown.tsx    # Markdown renderer (wiki links, themes)
-│   │   │   └── source-editor.tsx # CodeMirror + Vim
-│   │   ├── sidebar/
-│   │   │   ├── file-tree.tsx   # Recursive file tree
-│   │   │   └── favorites.tsx   # Numbered favorites
-│   │   ├── search/
-│   │   │   ├── file-finder.tsx # Ctrl+P fuzzy search
-│   │   │   └── in-file.tsx     # In-file search overlay
-│   │   ├── command-palette.tsx
-│   │   ├── plugin-panel.tsx    # Plugin error boundary
-│   │   ├── plugin-overlay.tsx  # Plugin overlay wrapper
-│   │   ├── tag-filter.tsx
-│   │   ├── quick-capture.tsx
-│   │   └── new-file-dialog.tsx
-│   ├── hooks/
-│   │   ├── use-vault.ts       # File tree + content state
-│   │   ├── use-shortcuts.ts   # Keyboard shortcut system
-│   │   └── use-theme.ts       # Theme CSS variable application
-│   └── lib/
-│       ├── tauri.ts            # Tauri command wrappers
-│       ├── types.ts            # TypeScript types
-│       ├── reader-state.ts     # UI state machine
-│       ├── plugin-loader.ts    # Plugin UI bundle loader
-│       └── remark-wiki-links.ts # [[wiki link]] remark plugin
+├── src-tauri/           # Rust backend
+│   └── src/
+│       ├── lib.rs       # App entry, plugin init, global hotkey
+│       ├── config.rs    # TOML config
+│       ├── watcher.rs   # File system watcher
+│       ├── theme.rs     # Theme loading
+│       ├── commands/    # Tauri IPC commands
+│       └── plugins/     # Plugin manager, Lua runtime, event bus
+├── src/                 # React frontend
+│   ├── routes/          # Main view
+│   ├── components/      # UI components
+│   ├── hooks/           # State and shortcuts
+│   └── lib/             # Tauri bindings, types, plugin loader
 ├── packages/
-│   └── plugin-sdk/             # @prism/plugin-sdk for plugin authors
-├── test-plugins/
-│   └── hello-world/            # Example plugin
-└── package.json
+│   └── plugin-sdk/      # @prism/plugin-sdk
+└── test-plugins/        # Example plugins
 ```
 
 ## License
 
-MIT
+[MIT](LICENSE)
