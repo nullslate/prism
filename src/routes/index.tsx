@@ -19,6 +19,8 @@ import { RenameDialog } from "@/components/rename-dialog";
 import { TagFilter } from "@/components/tag-filter";
 import { QuickCapture } from "@/components/quick-capture";
 import { LinkGraph } from "@/components/link-graph";
+import { PluginErrorBoundary } from "@/components/plugin-panel";
+import { loadPluginBundle, type PluginUI } from "@/lib/plugin-loader";
 import { useToast } from "@/components/toast";
 import { commands } from "@/lib/tauri";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -42,6 +44,7 @@ function ReaderView() {
   const { state, dispatch, readerRef } = useReader();
   const toast = useToast();
   const scrollLineRef = useRef(1);
+  const [pluginUIs, setPluginUIs] = useState<Record<string, PluginUI>>({});
   const [pendingTrash, setPendingTrash] = useState<string | null>(null);
   const pendingTrashTimer = useRef<ReturnType<typeof setTimeout>>(null);
   const scrollSaveTimer = useRef<ReturnType<typeof setTimeout>>(null);
@@ -80,6 +83,20 @@ function ReaderView() {
     });
     return () => { unlisten.then((f) => f()); };
   }, [dispatch]);
+
+  useEffect(() => {
+    commands.listPlugins().then((plugins) => {
+      for (const plugin of plugins) {
+        if (plugin.enabled) {
+          loadPluginBundle(plugin.name).then((ui) => {
+            if (ui) {
+              setPluginUIs((prev) => ({ ...prev, [plugin.name]: ui }));
+            }
+          });
+        }
+      }
+    }).catch(console.error);
+  }, []);
 
   const scrollReader = useCallback(
     (direction: "up" | "down", amount?: number) => {
@@ -486,6 +503,13 @@ function ReaderView() {
             />
             <Backlinks currentPath={currentPath} onSelect={openFile} />
             <Outline content={content} readerRef={readerRef} />
+            {Object.entries(pluginUIs).map(([name, ui]) =>
+              ui.sidebar ? (
+                <PluginErrorBoundary key={name} pluginName={name}>
+                  <ui.sidebar />
+                </PluginErrorBoundary>
+              ) : null
+            )}
           </aside>
         )}
 
