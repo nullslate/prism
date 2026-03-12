@@ -6,8 +6,8 @@
 
 Built with Tauri 2 + React + Rust
 
-[![Build](https://github.com/thesandybridge/prism/actions/workflows/build.yml/badge.svg)](https://github.com/thesandybridge/prism/actions/workflows/build.yml)
-[![Release](https://img.shields.io/github/v/release/thesandybridge/prism?include_prereleases&label=latest)](https://github.com/thesandybridge/prism/releases/latest)
+[![Build](https://github.com/nullslate/prism/actions/workflows/build.yml/badge.svg)](https://github.com/nullslate/prism/actions/workflows/build.yml)
+[![Release](https://img.shields.io/github/v/release/nullslate/prism?include_prereleases&label=latest)](https://github.com/nullslate/prism/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-lightgrey)]()
 
@@ -21,7 +21,7 @@ It reads your existing Obsidian, Logseq, or plain-markdown vault. It doesn't wri
 
 ## Install
 
-Download the latest release from [GitHub Releases](https://github.com/thesandybridge/prism/releases/latest).
+Download the latest release from [GitHub Releases](https://github.com/nullslate/prism/releases/latest).
 
 | Platform | Format | Install |
 |----------|--------|---------|
@@ -37,7 +37,7 @@ Download the latest release from [GitHub Releases](https://github.com/thesandybr
 Requires [Rust](https://rustup.rs/) (stable) and [Node.js](https://nodejs.org/) (v18+).
 
 ```sh
-git clone https://github.com/thesandybridge/prism.git
+git clone https://github.com/nullslate/prism.git
 cd prism
 npm install
 npm run tauri build
