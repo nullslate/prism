@@ -16,11 +16,20 @@ pub struct LuaPlugin {
 
 pub struct LuaRuntime {
     plugins: HashMap<String, LuaPlugin>,
+    luas: HashMap<String, Lua>,
+    handlers: HashMap<String, Vec<(String, mlua::RegistryKey)>>,
+    vault_path: PathBuf,
     cache_dir: PathBuf,
+    command_tx: std::sync::mpsc::Sender<PluginCommand>,
+    status_tx: std::sync::mpsc::Sender<(String, PluginStatusItem)>,
 }
 
 impl LuaRuntime {
-    pub fn new() -> Self {
+    pub fn new(
+        vault_path: PathBuf,
+        command_tx: std::sync::mpsc::Sender<PluginCommand>,
+        status_tx: std::sync::mpsc::Sender<(String, PluginStatusItem)>,
+    ) -> Self {
         let cache_dir = dirs::config_dir()
             .unwrap()
             .join("prism")
@@ -30,7 +39,12 @@ impl LuaRuntime {
 
         Self {
             plugins: HashMap::new(),
+            luas: HashMap::new(),
+            handlers: HashMap::new(),
+            vault_path,
             cache_dir,
+            command_tx,
+            status_tx,
         }
     }
 
@@ -40,8 +54,6 @@ impl LuaRuntime {
         plugin_dir: &Path,
         entry: &str,
         opts: &toml::Value,
-        command_tx: &std::sync::mpsc::Sender<PluginCommand>,
-        status_tx: &std::sync::mpsc::Sender<(String, PluginStatusItem)>,
     ) -> Result<(), String> {
         let lua = Lua::new();
         let entry_path = plugin_dir.join(entry);
@@ -53,7 +65,6 @@ impl LuaRuntime {
         let source = fs::read_to_string(&entry_path)
             .map_err(|e| format!("Failed to read {}: {}", entry, e))?;
 
-        // Set up package.path for the plugin directory
         let plugin_dir_str = plugin_dir.to_string_lossy().to_string();
         lua.load(format!(
             r#"package.path = "{}/?.lua;{}/lib/?.lua;" .. package.path"#,
@@ -62,18 +73,15 @@ impl LuaRuntime {
         .exec()
         .map_err(|e| format!("Failed to set package.path: {}", e))?;
 
-        // Create prism module
-        self.register_prism_api(&lua, name, command_tx, status_tx)
+        self.register_prism_api(&lua, name)
             .map_err(|e| format!("Failed to register prism API: {}", e))?;
 
-        // Load and evaluate the plugin source
         let module: LuaTable = lua
             .load(&source)
             .set_name(entry)
             .eval()
             .map_err(|e| format!("Failed to load {}: {}", entry, e))?;
 
-        // Call setup(opts)
         let setup: LuaFunction = module
             .get("setup")
             .map_err(|e| format!("Plugin must return table with setup function: {}", e))?;
@@ -91,46 +99,83 @@ impl LuaRuntime {
             status_items: vec![],
         });
 
+        self.luas.insert(name.to_string(), lua);
+        self.collect_handlers(name);
+
         Ok(())
+    }
+
+    fn collect_handlers(&mut self, plugin_name: &str) {
+        let entries: Vec<(String, mlua::RegistryKey)> = {
+            let lua = match self.luas.get(plugin_name) {
+                Some(l) => l,
+                None => return,
+            };
+            let handlers: LuaTable = match lua.named_registry_value("__prism_on_handlers") {
+                Ok(h) => h,
+                Err(_) => return,
+            };
+            (1..=handlers.raw_len())
+                .filter_map(|i| {
+                    let pair: LuaTable = handlers.get(i).ok()?;
+                    let event: String = pair.get(1).ok()?;
+                    let reg_name: String = pair.get(2).ok()?;
+                    let key = lua.named_registry_value::<mlua::RegistryKey>(&reg_name).ok()?;
+                    Some((event, key))
+                })
+                .collect()
+        };
+
+        let name = plugin_name.to_string();
+        for (event, key) in entries {
+            self.handlers
+                .entry(event)
+                .or_default()
+                .push((name.clone(), key));
+        }
     }
 
     fn register_prism_api(
         &self,
         lua: &Lua,
         plugin_name: &str,
-        command_tx: &std::sync::mpsc::Sender<PluginCommand>,
-        status_tx: &std::sync::mpsc::Sender<(String, PluginStatusItem)>,
     ) -> LuaResult<()> {
         let prism = lua.create_table()?;
         let name = plugin_name.to_string();
 
-        // prism.log(msg)
         let log_name = name.clone();
         prism.set("log", lua.create_function(move |_, msg: String| {
             eprintln!("[prism:{}] {}", log_name, msg);
             Ok(())
         })?)?;
 
-        // prism.on(event, fn) - registers handler (stub, integrated later)
+        let on_handlers = lua.create_table()?;
+        lua.set_named_registry_value("__prism_on_handlers", on_handlers)?;
+
         let on_name = name.clone();
-        prism.set("on", lua.create_function(move |_, (event, _func): (String, LuaFunction)| {
-            eprintln!("[prism:{}] registered handler for {}", on_name, event);
+        prism.set("on", lua.create_function(move |lua_ctx, (event, func): (String, LuaFunction)| {
+            let handlers: LuaTable = lua_ctx.named_registry_value("__prism_on_handlers")?;
+            let idx = handlers.raw_len() + 1;
+            let reg_name = format!("__prism_handler_{}_{}", on_name, idx);
+            let key = lua_ctx.create_registry_value(func)?;
+            lua_ctx.set_named_registry_value(&reg_name, key)?;
+            let pair = lua_ctx.create_table()?;
+            pair.set(1, event)?;
+            pair.set(2, reg_name)?;
+            handlers.set(idx, pair)?;
             Ok(())
         })?)?;
 
-        // prism.emit(event, data) - emit custom event (stub, integrated later)
         prism.set("emit", lua.create_function(|_, (_event, _data): (String, Option<LuaValue>)| {
             Ok(())
         })?)?;
 
-        // prism.command(spec)
-        let cmd_tx = command_tx.clone();
+        let cmd_tx = self.command_tx.clone();
         let cmd_name = name.clone();
         prism.set("command", lua.create_function(move |_, spec: LuaTable| {
             let id: String = spec.get("id")?;
             let label: String = spec.get("label")?;
             let shortcut: Option<String> = spec.get("shortcut").ok();
-
             let _ = cmd_tx.send(PluginCommand {
                 id,
                 label,
@@ -140,13 +185,11 @@ impl LuaRuntime {
             Ok(())
         })?)?;
 
-        // prism.status(spec)
-        let st_tx = status_tx.clone();
+        let st_tx = self.status_tx.clone();
         let st_name = name.clone();
         prism.set("status", lua.create_function(move |_, spec: LuaTable| {
             let id: String = spec.get("id")?;
             let align: String = spec.get::<String>("align").unwrap_or_else(|_| "right".into());
-
             let _ = st_tx.send((st_name.clone(), PluginStatusItem {
                 id,
                 plugin: st_name.clone(),
@@ -156,22 +199,112 @@ impl LuaRuntime {
             Ok(())
         })?)?;
 
-        // prism.toast(msg, level)
         prism.set("toast", lua.create_function(|_, (msg, _level): (String, Option<String>)| {
             eprintln!("[prism:toast] {}", msg);
             Ok(())
         })?)?;
 
-        // prism.vault_path() - returns vault root (filled in during integration)
-        prism.set("vault_path", lua.create_function(|_, ()| {
-            Ok(String::new())
+        let vp = self.vault_path.to_string_lossy().to_string();
+        prism.set("vault_path", lua.create_function(move |_, ()| {
+            Ok(vp.clone())
         })?)?;
 
-        // Register as module available via require("prism")
         let loaded: LuaTable = lua.globals().get::<LuaTable>("package")?.get("loaded")?;
         loaded.set("prism", prism)?;
 
         Ok(())
+    }
+
+    pub fn dispatch_pre_render(&self, path: &str, name: &str, content: String) -> String {
+        let handlers = match self.handlers.get("file:pre-render") {
+            Some(h) => h,
+            None => return content,
+        };
+
+        let mut current = content;
+        for (plugin_name, reg_key) in handlers {
+            let lua = match self.luas.get(plugin_name) {
+                Some(l) => l,
+                None => continue,
+            };
+            let func: LuaFunction = match lua.registry_value(reg_key) {
+                Ok(f) => f,
+                Err(e) => {
+                    eprintln!("[prism:{}] failed to get handler: {}", plugin_name, e);
+                    continue;
+                }
+            };
+
+            let payload = match lua.create_table() {
+                Ok(t) => t,
+                Err(_) => continue,
+            };
+            let _ = payload.set("event", "file:pre-render");
+            let _ = payload.set("path", path);
+            let _ = payload.set("name", name);
+            let _ = payload.set("content", current.as_str());
+
+            match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                func.call::<Option<String>>(payload)
+            })) {
+                Ok(Ok(Some(transformed))) => {
+                    current = transformed;
+                }
+                Ok(Ok(None)) => {}
+                Ok(Err(e)) => {
+                    eprintln!("[prism:{}] file:pre-render error: {}", plugin_name, e);
+                }
+                Err(_) => {
+                    eprintln!("[prism:{}] panicked in file:pre-render", plugin_name);
+                }
+            }
+        }
+
+        current
+    }
+
+    pub fn dispatch(&self, event: &str, data: Option<serde_json::Value>) {
+        let handlers = match self.handlers.get(event) {
+            Some(h) => h,
+            None => return,
+        };
+
+        for (plugin_name, reg_key) in handlers {
+            let lua = match self.luas.get(plugin_name) {
+                Some(l) => l,
+                None => continue,
+            };
+            let func: LuaFunction = match lua.registry_value(reg_key) {
+                Ok(f) => f,
+                Err(e) => {
+                    eprintln!("[prism:{}] failed to get handler for {}: {}", plugin_name, event, e);
+                    continue;
+                }
+            };
+
+            let payload = match lua.create_table() {
+                Ok(t) => t,
+                Err(_) => continue,
+            };
+            let _ = payload.set("event", event);
+            if let Some(ref d) = data {
+                if let Ok(lua_val) = lua.to_value(d) {
+                    let _ = payload.set("data", lua_val);
+                }
+            }
+
+            match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                func.call::<()>(payload)
+            })) {
+                Ok(Ok(())) => {}
+                Ok(Err(e)) => {
+                    eprintln!("[prism:{}] error in {}: {}", plugin_name, event, e);
+                }
+                Err(_) => {
+                    eprintln!("[prism:{}] panicked in {}", plugin_name, event);
+                }
+            }
+        }
     }
 
     fn toml_to_lua(&self, lua: &Lua, value: &toml::Value) -> LuaResult<LuaValue> {
@@ -200,6 +333,10 @@ impl LuaRuntime {
 
     pub fn unload_plugin(&mut self, name: &str) {
         self.plugins.remove(name);
+        self.luas.remove(name);
+        for handlers in self.handlers.values_mut() {
+            handlers.retain(|(plugin, _)| plugin != name);
+        }
     }
 }
 
@@ -209,7 +346,9 @@ mod tests {
 
     #[test]
     fn test_toml_to_lua_conversion() {
-        let runtime = LuaRuntime::new();
+        let (cmd_tx, _cmd_rx) = std::sync::mpsc::channel();
+        let (st_tx, _st_rx) = std::sync::mpsc::channel();
+        let runtime = LuaRuntime::new(PathBuf::from("/tmp"), cmd_tx, st_tx);
         let lua = Lua::new();
 
         let val = toml::Value::Table({
