@@ -1,16 +1,24 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 /// Resolve a prism-plugin:// URL to file contents and MIME type.
+/// Uses plugin_paths to look up the actual directory for each plugin.
 pub fn resolve_plugin_asset(
-    plugins_dir: &PathBuf,
+    plugin_paths: &HashMap<String, PathBuf>,
     url: &str,
 ) -> Option<(Vec<u8>, String)> {
+    // URL format: prism-plugin://localhost/plugin-name/file/path
+    // or: prism-plugin://plugin-name/file/path
     let path = url.strip_prefix("prism-plugin://")?;
+    // Strip "localhost/" prefix if present (Tauri sometimes adds it)
+    let path = path.strip_prefix("localhost/").unwrap_or(path);
+
     let mut parts = path.splitn(2, '/');
     let plugin_name = parts.next()?;
     let file_path = parts.next().unwrap_or("ui/dist/index.js");
 
-    let full_path = plugins_dir.join(plugin_name).join(file_path);
+    let plugin_dir = plugin_paths.get(plugin_name)?;
+    let full_path = plugin_dir.join(file_path);
 
     if !full_path.exists() {
         return None;

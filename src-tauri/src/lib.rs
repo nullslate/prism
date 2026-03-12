@@ -54,19 +54,25 @@ pub fn run() {
     let mut plugin_manager = plugins::manager::PluginManager::new();
     plugin_manager.discover(&config.plugins);
 
+    // Build a map of plugin name -> actual directory for the protocol handler
+    let plugin_paths: std::collections::HashMap<String, std::path::PathBuf> = plugin_manager
+        .plugins
+        .iter()
+        .filter(|(_, info)| info.enabled && info.path.as_os_str().len() > 0)
+        .map(|(name, info)| (name.clone(), info.path.clone()))
+        .collect();
+    let plugin_paths = std::sync::Arc::new(plugin_paths);
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
-        .register_asynchronous_uri_scheme_protocol("prism-plugin", |_ctx, request, responder| {
+        .register_asynchronous_uri_scheme_protocol("prism-plugin", move |_ctx, request, responder| {
             let url = request.uri().to_string();
-            let plugins_dir = dirs::config_dir()
-                .unwrap()
-                .join("prism")
-                .join("plugins");
+            let paths = plugin_paths.clone();
 
             std::thread::spawn(move || {
-                match plugins::protocol::resolve_plugin_asset(&plugins_dir, &url) {
+                match plugins::protocol::resolve_plugin_asset(&paths, &url) {
                     Some((body, mime)) => {
                         let response = tauri::http::Response::builder()
                             .header("Content-Type", &mime)
