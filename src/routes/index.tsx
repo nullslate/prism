@@ -38,7 +38,7 @@ export const Route = createFileRoute("/")(
 function ReaderView() {
   const { files, currentPath, content, openFile, closeFile, refreshFiles, setContent } =
     useVault();
-  const { config, shortcuts, favorites, toggleFavorite } = usePrism();
+  const { config, shortcuts, favorites, pluginCommands, toggleFavorite } = usePrism();
   const { state, dispatch, readerRef } = useReader();
   const toast = useToast();
   const scrollLineRef = useRef(1);
@@ -334,9 +334,39 @@ function ReaderView() {
           }).catch(console.error);
         },
       },
+      {
+        id: "update-plugins",
+        label: "Update Plugins",
+        action: () => {
+          commands.updatePlugins().then((count) => {
+            toast.info(`Updated ${count} plugin(s)`);
+          }).catch(console.error);
+        },
+      },
+      {
+        id: "clean-plugins",
+        label: "Clean Unused Plugins",
+        action: () => {
+          commands.cleanPlugins().then((removed) => {
+            toast.info(`Removed ${removed.length} plugin(s)`);
+          }).catch(console.error);
+        },
+      },
     ],
-    [currentPath, currentFileName, toggleFavorite, refreshFiles, dispatch, trashCurrentFile, cycleTheme, setVault, openFile, shortcutLabel, state.sidebarVisible],
+    [currentPath, currentFileName, toggleFavorite, refreshFiles, dispatch, trashCurrentFile, cycleTheme, setVault, openFile, shortcutLabel, state.sidebarVisible, toast],
   );
+
+  const allPaletteCommands = useMemo(() => {
+    const pluginCmds = pluginCommands.map((cmd) => ({
+      id: `plugin:${cmd.plugin}:${cmd.id}`,
+      label: cmd.label,
+      shortcut: cmd.shortcut ?? undefined,
+      action: () => {
+        commands.pluginEmit(`command:${cmd.id}`, undefined);
+      },
+    }));
+    return [...paletteCommands, ...pluginCmds];
+  }, [paletteCommands, pluginCommands]);
 
   const shortcutMaps: ShortcutMaps = useMemo(() => {
     const globalActions: Record<string, () => void> = {
@@ -502,7 +532,7 @@ function ReaderView() {
       )}
       {state.overlay === "palette" && (
         <CommandPalette
-          commands={paletteCommands}
+          commands={allPaletteCommands}
           onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
         />
       )}

@@ -1,5 +1,6 @@
 import { memo } from "react";
 import { useReader } from "@/components/reader-provider";
+import { usePrism } from "@/components/prism-provider";
 
 interface StatusBarProps {
   filePath: string | null;
@@ -8,6 +9,7 @@ interface StatusBarProps {
 
 export const StatusBar = memo(function StatusBar({ filePath, content }: StatusBarProps) {
   const { state } = useReader();
+  const { pluginStatusItems } = usePrism();
   const wordCount = content ? content.split(/\s+/).filter(Boolean).length : 0;
   const mode = state.editorOpen ? "EDITOR" : "RENDER";
 
@@ -31,6 +33,9 @@ export const StatusBar = memo(function StatusBar({ filePath, content }: StatusBa
         <span>{filePath ?? "No file selected"}</span>
       </div>
       <div className="flex items-center gap-3">
+        {pluginStatusItems.filter(s => s.text).map((item) => (
+          <span key={`${item.plugin}:${item.id}`}>{item.text}</span>
+        ))}
         {filePath && <span>{wordCount}w</span>}
         {state.keySequence && (
           <span style={{ color: "var(--prism-fg)" }}>{state.keySequence}</span>
