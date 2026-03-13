@@ -1,12 +1,11 @@
-use crate::config::PrismConfig;
 use nucleo_matcher::{
     pattern::{CaseMatching, Normalization, Pattern},
     Config, Matcher,
 };
 use serde::Serialize;
 use std::fs;
-use std::path::Path;
-use std::sync::Mutex;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, RwLock};
 use tauri::State;
 
 #[derive(Debug, Clone, Serialize)]
@@ -43,20 +42,53 @@ fn collect_md_files(dir: &Path, vault_root: &Path, out: &mut Vec<(String, String
     }
 }
 
+pub struct FileIndex {
+    entries: RwLock<Vec<(String, String)>>,
+    vault_path: RwLock<PathBuf>,
+}
+
+impl FileIndex {
+    pub fn new() -> Self {
+        Self {
+            entries: RwLock::new(Vec::new()),
+            vault_path: RwLock::new(PathBuf::new()),
+        }
+    }
+
+    pub fn refresh(&self, vault_path: &Path) {
+        {
+            let mut vp = self.vault_path.write().unwrap();
+            *vp = vault_path.to_path_buf();
+        }
+        let mut files = Vec::new();
+        collect_md_files(vault_path, vault_path, &mut files);
+        let mut entries = self.entries.write().unwrap();
+        *entries = files;
+    }
+
+    pub fn refresh_current(&self) {
+        let vp = self.vault_path.read().unwrap().clone();
+        if vp.as_os_str().is_empty() {
+            return;
+        }
+        self.refresh(&vp);
+    }
+
+    pub fn get_entries(&self) -> Vec<(String, String)> {
+        self.entries.read().unwrap().clone()
+    }
+}
+
 #[tauri::command]
 pub fn fuzzy_search(
     query: String,
-    config: State<'_, Mutex<PrismConfig>>,
+    file_index: State<'_, Arc<FileIndex>>,
 ) -> Result<Vec<SearchResult>, String> {
     if query.is_empty() {
         return Ok(vec![]);
     }
 
-    let config = config.lock().map_err(|e| e.to_string())?;
-    let vault = config.vault_path();
-
-    let mut files: Vec<(String, String)> = Vec::new();
-    collect_md_files(&vault, &vault, &mut files);
+    let files = file_index.get_entries();
 
     let mut matcher = Matcher::new(Config::DEFAULT.match_paths());
     let pattern = Pattern::parse(&query, CaseMatching::Ignore, Normalization::Smart);
@@ -121,17 +153,13 @@ pub struct VaultSearchMatch {
 #[tauri::command]
 pub fn vault_search(
     query: String,
-    config: State<'_, Mutex<PrismConfig>>,
+    file_index: State<'_, Arc<FileIndex>>,
 ) -> Result<Vec<VaultSearchMatch>, String> {
     if query.is_empty() {
         return Ok(vec![]);
     }
 
-    let config = config.lock().map_err(|e| e.to_string())?;
-    let vault = config.vault_path();
-
-    let mut files: Vec<(String, String)> = Vec::new();
-    collect_md_files(&vault, &vault, &mut files);
+    let files = file_index.get_entries();
 
     let query_lower = query.to_lowercase();
     let mut results: Vec<VaultSearchMatch> = Vec::new();
