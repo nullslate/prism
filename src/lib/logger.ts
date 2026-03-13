@@ -31,7 +31,7 @@ const BANNER = `
 export function printBanner(config: { theme: string; vault: string; debug: boolean }) {
   console.log(
     `%c${BANNER}%c\n\n` +
-    `  %cv0.6.0%c  theme: %c${config.theme}%c  vault: %c${config.vault}%c\n`,
+    `  %cv0.6.1%c  theme: %c${config.theme}%c  vault: %c${config.vault}%c\n`,
     "color: #b48ead; font-weight: bold",
     "",
     "color: #a3be8c; font-weight: bold",

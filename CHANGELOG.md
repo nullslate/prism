@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.1] - 2026-03-13
+
+### Changed
+
+- Link graph and plugin overlay converted to fullscreen
+
 ## [0.6.0] - 2026-03-13
 
 ### Features

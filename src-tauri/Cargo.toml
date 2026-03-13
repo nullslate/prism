@@ -1,6 +1,6 @@
 [package]
 name = "prism"
-version = "0.6.0"
+version = "0.6.1"
 description = "A keyboard-driven markdown vault reader"
 authors = ["thesandybridge"]
 edition = "2021"
