@@ -21,6 +21,12 @@
 
   --font-mono: "JetBrains Mono", monospace;
   --font-sans: "Inter", system-ui, sans-serif;
+
+  --transition-fast: 120ms;
+  --transition-normal: 200ms;
+  --transition-slow: 300ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 body {
@@ -49,6 +55,67 @@ main {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--prism-muted);
+}
+
+button, a, [role="button"] {
+  transition: opacity var(--transition-fast) var(--ease-out),
+              color var(--transition-fast) var(--ease-out),
+              background-color var(--transition-fast) var(--ease-out);
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--prism-accent);
+  border-radius: 2px;
+  transition: box-shadow var(--transition-fast) var(--ease-out);
+}
+
+body, main, footer, header, nav,
+button, a, code, pre,
+[data-tauri-drag-region] {
+  transition: color var(--transition-slow) var(--ease-in-out),
+              background-color var(--transition-slow) var(--ease-in-out),
+              border-color var(--transition-slow) var(--ease-in-out);
+}
+
+@keyframes overlay-in {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes overlay-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.98); }
+}
+@keyframes slide-in-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+@keyframes slide-out-left {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.tree-children {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition: grid-template-rows var(--transition-fast) var(--ease-out),
+              opacity var(--transition-fast) var(--ease-out);
+}
+.tree-children[data-collapsed="true"] {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+.tree-children > div {
+  overflow: hidden;
 }
 
 /* highlight.js syntax highlighting - themed via CSS variables */
