@@ -5,7 +5,7 @@ mod theme;
 mod watcher;
 
 use config::PrismConfig;
-use log::{error, info, warn};
+use log::{error, info};
 use plugins::lua_runtime::LuaRuntime;
 use std::sync::Mutex;
 use tauri::Emitter;
