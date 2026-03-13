@@ -254,7 +254,12 @@ export const FileTree = memo(function FileTree({
       tabIndex={0}
       onKeyDown={handleKeyDown}
     >
-      <ul className="list-none m-0 p-0">
+      <div className="relative">
+        <div
+          className="file-tree-cursor"
+          style={{ top: `${cursor * 32}px` }}
+        />
+      <ul className="list-none m-0 p-0 relative" style={{ zIndex: 1 }}>
         {items.map((item, idx) => (
           <FileTreeRow
             key={item.node.path}
@@ -276,6 +281,7 @@ export const FileTree = memo(function FileTree({
           />
         ))}
       </ul>
+      </div>
       {pendingTrash && (
         <div
           className="sticky bottom-0 left-0 right-0 px-3 py-1.5 text-xs text-center"
@@ -296,7 +302,7 @@ export const FileTree = memo(function FileTree({
 const FileTreeRow = memo(function FileTreeRow({
   item,
   idx,
-  isCursor,
+  isCursor: _isCursor,
   isActive,
   isPendingTrash,
   isRenaming,
@@ -329,9 +335,7 @@ const FileTreeRow = memo(function FileTreeRow({
   const { node, depth, expanded } = item;
   const indent = depth * 16 + 12;
 
-  const bg = isCursor
-    ? "var(--prism-selection)"
-    : "transparent";
+  const bg = "transparent";
 
   const color = isPendingTrash
     ? "var(--prism-syntax-variable)"

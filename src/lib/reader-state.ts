@@ -5,6 +5,7 @@ export interface ReaderState {
   overlay: Overlay;
   editorOpen: boolean;
   keySequence: string;
+  saveFlash: boolean;
 }
 
 export type ReaderAction =
@@ -13,13 +14,15 @@ export type ReaderAction =
   | { type: "CLOSE_OVERLAY" }
   | { type: "OPEN_EDITOR" }
   | { type: "CLOSE_EDITOR" }
-  | { type: "SET_KEY_SEQUENCE"; keySequence: string };
+  | { type: "SET_KEY_SEQUENCE"; keySequence: string }
+  | { type: "SAVE_FLASH" };
 
 export const initialReaderState: ReaderState = {
   sidebarVisible: false,
   overlay: "none",
   editorOpen: false,
   keySequence: "",
+  saveFlash: false,
 };
 
 export function readerReducer(state: ReaderState, action: ReaderAction): ReaderState {
@@ -36,6 +39,8 @@ export function readerReducer(state: ReaderState, action: ReaderAction): ReaderS
       return { ...state, editorOpen: false };
     case "SET_KEY_SEQUENCE":
       return { ...state, keySequence: action.keySequence };
+    case "SAVE_FLASH":
+      return { ...state, saveFlash: !state.saveFlash };
     default:
       return state;
   }

@@ -18,8 +18,12 @@ import { QuickCapture } from "@/components/quick-capture";
 import { TemplatePickerDialog } from "@/components/template-picker";
 import { LinkGraph } from "@/components/link-graph";
 import { ThemePicker } from "@/components/theme-picker";
+import { AnimatedOverlay } from "@/components/animated-overlay";
+import { SidebarPanel } from "@/components/sidebar-panel";
+import { WhichKey } from "@/components/which-key";
 import { PluginErrorBoundary } from "@/components/plugin-panel";
 import { loadPluginBundle, type PluginUI } from "@/lib/plugin-loader";
+import { ContentSkeleton } from "@/components/content-skeleton";
 import { useToast } from "@/components/toast";
 import { commands } from "@/lib/tauri";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -38,7 +42,7 @@ export const Route = createFileRoute("/")(
 });
 
 function ReaderView() {
-  const { files, currentPath, content, openFile, closeFile, refreshFiles, setContent } =
+  const { files, currentPath, content, loading, openFile, closeFile, refreshFiles, setContent } =
     useVault();
   const { config, shortcuts, favorites, pluginCommands, toggleFavorite } = usePrism();
   const { state, dispatch, readerRef } = useReader();
@@ -178,6 +182,11 @@ function ReaderView() {
   const closeEditor = useCallback(() => {
     dispatch({ type: "CLOSE_EDITOR" });
   }, [dispatch]);
+
+  const handleEditorSave = useCallback((text: string) => {
+    setContent(text);
+    dispatch({ type: "SAVE_FLASH" });
+  }, [setContent, dispatch]);
 
   const createFile = useCallback(
     (path: string) => {
@@ -548,17 +557,56 @@ function ReaderView() {
     setVault,
   ]);
 
+  const actionLabels = useMemo(() => {
+    const labels: Record<string, string> = {};
+    const sc = shortcuts ?? { global: {}, render: {} };
+    const labelMap: Record<string, string> = {
+      "find-file": "Find File",
+      "toggle-sidebar": "Toggle Sidebar",
+      "command-palette": "Command Palette",
+      "new-file": "New File",
+      "filter-tags": "Filter Tags",
+      "quick-capture": "Quick Capture",
+      "new-from-template": "New from Template",
+      "link-graph": "Link Graph",
+      "cycle-theme": "Switch Theme",
+      "vault-search": "Search Vault",
+      "set-vault": "Set Vault",
+      "daily-note": "Daily Note",
+      "close-overlay": "Close Overlay",
+      "page-down": "Page Down",
+      "page-up": "Page Up",
+      "quit": "Quit",
+      "scroll-down": "Scroll Down",
+      "scroll-up": "Scroll Up",
+      "scroll-left": "Scroll Left",
+      "scroll-right": "Scroll Right",
+      "goto-top": "Go to Top",
+      "goto-bottom": "Go to Bottom",
+      "open-editor": "Open Editor",
+      "toggle-todo": "Toggle Todo",
+      "search-in-file": "Search in File",
+      "trash-file": "Trash File",
+    };
+    for (let i = 1; i <= 9; i++) {
+      labelMap[`favorite-${i}`] = `Favorite ${i}`;
+    }
+    for (const [actionId, binding] of Object.entries(sc.global)) {
+      labels[binding] = labelMap[actionId] ?? actionId;
+    }
+    for (const [actionId, binding] of Object.entries(sc.render)) {
+      labels[binding] = labelMap[actionId] ?? actionId;
+    }
+    return labels;
+  }, [shortcuts]);
+
   const currentMode = state.editorOpen ? "editor" : state.sidebarVisible ? "sidebar" : "render";
-  useShortcuts(shortcutMaps, currentMode, dispatch);
+  const { continuations } = useShortcuts(shortcutMaps, currentMode, dispatch, actionLabels);
 
   return (
     <>
       <div className="flex flex-1 overflow-hidden">
-        {state.sidebarVisible && (
-          <div
-            className="absolute inset-0 z-40 flex flex-col overflow-hidden"
-            style={{ background: "var(--prism-sidebar-bg)" }}
-          >
+        <SidebarPanel visible={state.sidebarVisible}>
             <div
               className="flex items-center border-b px-3 gap-2 shrink-0"
               style={{ borderColor: "var(--prism-border)" }}
@@ -604,15 +652,14 @@ function ReaderView() {
               onRefresh={refreshFiles}
               onClose={() => dispatch({ type: "TOGGLE_SIDEBAR" })}
             />
-          </div>
-        )}
+        </SidebarPanel>
 
         {state.editorOpen && currentPath && content != null ? (
           <SourceEditor
             content={content}
             filePath={currentPath}
             scrollLine={scrollLineRef.current}
-            onSave={setContent}
+            onSave={handleEditorSave}
             onExit={closeEditor}
           />
         ) : (
@@ -621,7 +668,9 @@ function ReaderView() {
             ref={readerRef}
             onScroll={saveScrollPosition}
           >
-            {content ? (
+            {loading ? (
+              <ContentSkeleton />
+            ) : content ? (
               <MarkdownViewer content={content} onNavigate={navigateWikiLink} />
             ) : (
               <div
@@ -642,70 +691,73 @@ function ReaderView() {
       )}
       <StatusBar filePath={currentPath} content={content} />
 
-      {state.overlay === "file-finder" && (
+      <AnimatedOverlay visible={state.overlay === "file-finder"}>
         <FileFinder
-          onSelect={openFile}
-          onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
+          onSelect={(path) => { openFile(path); dispatch({ type: "CLOSE_OVERLAY" }); }}
+          onClose={() => dispatch({ type: "CLOSE_OVERLAY" })}
         />
-      )}
-      {state.overlay === "palette" && (
+      </AnimatedOverlay>
+      <AnimatedOverlay visible={state.overlay === "palette"}>
         <CommandPalette
           commands={allPaletteCommands}
-          onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
+          onClose={() => dispatch({ type: "CLOSE_OVERLAY" })}
         />
-      )}
-      {state.overlay === "new-file" && (
+      </AnimatedOverlay>
+      <AnimatedOverlay visible={state.overlay === "new-file"}>
         <NewFileDialog
           onCreate={createFile}
-          onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
+          onClose={() => dispatch({ type: "CLOSE_OVERLAY" })}
         />
-      )}
-      {state.overlay === "rename" && currentPath && (
-        <RenameDialog
-          currentPath={currentPath}
-          onRename={renameCurrentFile}
-          onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
-        />
-      )}
-      {state.overlay === "tags" && (
+      </AnimatedOverlay>
+      <AnimatedOverlay visible={state.overlay === "rename"}>
+        {currentPath && (
+          <RenameDialog
+            currentPath={currentPath}
+            onRename={renameCurrentFile}
+            onClose={() => dispatch({ type: "CLOSE_OVERLAY" })}
+          />
+        )}
+      </AnimatedOverlay>
+      <AnimatedOverlay visible={state.overlay === "tags"}>
         <TagFilter
           onSelect={(path) => {
             openFile(path);
-            dispatch({ type: "SET_OVERLAY", overlay: "none" });
+            dispatch({ type: "CLOSE_OVERLAY" });
           }}
-          onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
+          onClose={() => dispatch({ type: "CLOSE_OVERLAY" })}
         />
-      )}
-      {state.overlay === "capture" && (
+      </AnimatedOverlay>
+      <AnimatedOverlay visible={state.overlay === "capture"}>
         <QuickCapture
           onCapture={handleCapture}
-          onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
+          onClose={() => dispatch({ type: "CLOSE_OVERLAY" })}
         />
-      )}
-      {state.overlay === "template" && (
+      </AnimatedOverlay>
+      <AnimatedOverlay visible={state.overlay === "template"}>
         <TemplatePickerDialog
           onCreate={createFromTemplate}
-          onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
+          onClose={() => dispatch({ type: "CLOSE_OVERLAY" })}
         />
-      )}
-      {state.overlay === "vault-search" && (
+      </AnimatedOverlay>
+      <AnimatedOverlay visible={state.overlay === "vault-search"}>
         <VaultSearch
-          onSelect={openFile}
-          onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
+          onSelect={(path) => { openFile(path); dispatch({ type: "CLOSE_OVERLAY" }); }}
+          onClose={() => dispatch({ type: "CLOSE_OVERLAY" })}
         />
-      )}
-      {state.overlay === "theme" && (
+      </AnimatedOverlay>
+      <AnimatedOverlay visible={state.overlay === "theme"}>
         <ThemePicker
-          onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
+          onClose={() => dispatch({ type: "CLOSE_OVERLAY" })}
         />
-      )}
-      {state.overlay === "graph" && (
+      </AnimatedOverlay>
+      <AnimatedOverlay visible={state.overlay === "graph"}>
         <LinkGraph
           currentPath={currentPath}
-          onSelect={openFile}
-          onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
+          onSelect={(path) => { openFile(path); dispatch({ type: "CLOSE_OVERLAY" }); }}
+          onClose={() => dispatch({ type: "CLOSE_OVERLAY" })}
         />
-      )}
+      </AnimatedOverlay>
+      <WhichKey continuations={continuations} keySequence={state.keySequence} />
       {pendingTrash && (
         <div
           className="fixed bottom-8 left-1/2 -translate-x-1/2 px-4 py-2 rounded text-sm z-50"

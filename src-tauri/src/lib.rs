@@ -4,10 +4,12 @@ mod plugins;
 mod theme;
 mod watcher;
 
+use commands::frecency::FrecencyStore;
+use commands::search::FileIndex;
 use config::PrismConfig;
 use log::{error, info};
 use plugins::lua_runtime::LuaRuntime;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tauri::Emitter;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut};
 
@@ -136,11 +138,13 @@ pub fn run() {
                 }
             });
         })
+        .manage(Arc::new(FileIndex::new()))
+        .manage(Arc::new(FrecencyStore::new()))
         .manage(Mutex::new(config))
         .manage(Mutex::new(plugin_manager))
         .manage(Mutex::new(lua_runtime))
         .setup(move |app| {
-            use tauri::Manager;
+            use tauri::{Listener, Manager};
 
             let config = app.state::<Mutex<PrismConfig>>();
             let config = config.lock().unwrap();
@@ -179,6 +183,24 @@ pub fn run() {
 
             let config_path = PrismConfig::config_path();
             let handle = app.handle().clone();
+
+            // Initialize file index cache
+            let file_index = app.state::<Arc<FileIndex>>();
+            if vault_path.exists() {
+                file_index.refresh(&vault_path);
+            }
+
+            // Initialize frecency store
+            let frecency = app.state::<Arc<FrecencyStore>>();
+            frecency.init(&vault_path.to_string_lossy());
+
+            // Wire file watcher to refresh file index on changes
+            {
+                let file_index = Arc::clone(file_index.inner());
+                app.listen("file-changed", move |_| {
+                    file_index.refresh_current();
+                });
+            }
 
             if vault_path.exists() {
                 let watcher = watcher::start_watcher(handle, &vault_path, &config_path)
@@ -259,6 +281,9 @@ pub fn run() {
             commands::plugins::clean_plugins,
             commands::plugins::plugin_emit,
             commands::logger::log_message,
+            commands::frecency::record_file_open,
+            commands::frecency::get_frecency_scores,
+            commands::frecency::get_recent_files,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

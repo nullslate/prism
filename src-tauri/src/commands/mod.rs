@@ -3,6 +3,7 @@ pub mod config;
 pub mod editor;
 pub mod favorites;
 pub mod files;
+pub mod frecency;
 pub mod graph;
 pub mod images;
 pub mod logger;
