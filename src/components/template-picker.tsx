@@ -86,18 +86,14 @@ export function TemplatePickerDialog({ onCreate, onClose }: TemplatePickerProps)
 
   return (
     <div
-      className="fixed inset-0 flex items-start justify-center pt-16 z-50"
-      style={{ background: "rgba(0,0,0,0.5)" }}
-      onClick={onClose}
+      className="fixed inset-0 z-50 flex flex-col"
+      style={{ background: "var(--prism-bg)" }}
     >
       <div
-        className="w-[28rem] border shadow-lg rounded"
-        style={{
-          background: "var(--prism-bg)",
-          borderColor: "var(--prism-border)",
-        }}
-        onClick={(e) => e.stopPropagation()}
+        className="flex items-center border-b px-3 gap-2"
+        style={{ borderColor: "var(--prism-border)" }}
       >
+        <span style={{ color: "var(--prism-muted)" }}>&#x25A3;</span>
         {selectedTemplate ? (
           <input
             ref={inputRef}
@@ -105,68 +101,74 @@ export function TemplatePickerDialog({ onCreate, onClose }: TemplatePickerProps)
             onChange={(e) => setFileName(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={`New file from "${selectedTemplate.name}"...`}
-            className="w-full px-3 py-2 text-sm outline-none"
+            className="flex-1 py-2.5 text-sm outline-none"
             style={{
-              background: "var(--prism-bg)",
+              background: "transparent",
               color: "var(--prism-fg)",
               fontFamily: "var(--font-mono)",
             }}
           />
         ) : (
-          <>
-            <input
-              ref={inputRef}
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Select template..."
-              className="w-full px-3 py-2 text-sm outline-none border-b"
-              style={{
-                background: "var(--prism-bg)",
-                color: "var(--prism-fg)",
-                borderColor: "var(--prism-border)",
-                fontFamily: "var(--font-mono)",
-              }}
-            />
-            <ul ref={listRef} className="max-h-72 overflow-y-auto">
-              {filtered.length === 0 ? (
-                <li
-                  className="px-3 py-4 text-sm text-center"
-                  style={{ color: "var(--prism-muted)", fontFamily: "var(--font-mono)" }}
-                >
-                  {templates.length === 0
-                    ? "No templates found. Add .md files to templates/"
-                    : "No matching templates"}
-                </li>
-              ) : (
-                filtered.map((t, i) => (
-                  <li
-                    key={t.path}
-                    className="px-3 py-2 text-sm cursor-pointer"
-                    style={{
-                      background:
-                        i === selectedIndex
-                          ? "var(--prism-selection)"
-                          : "transparent",
-                      fontFamily: "var(--font-mono)",
-                    }}
-                    onClick={() => setSelectedTemplate(t)}
-                    onMouseEnter={() => setSelectedIndex(i)}
-                  >
-                    <div style={{ color: "var(--prism-fg)" }}>{t.name}</div>
-                    <div
-                      className="truncate"
-                      style={{ color: "var(--prism-muted)", fontSize: "11px" }}
-                    >
-                      {t.path}
-                    </div>
-                  </li>
-                ))
-              )}
-            </ul>
-          </>
+          <input
+            ref={inputRef}
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Select template..."
+            className="flex-1 py-2.5 text-sm outline-none"
+            style={{
+              background: "transparent",
+              color: "var(--prism-fg)",
+              fontFamily: "var(--font-mono)",
+            }}
+          />
         )}
+        <button
+          onClick={onClose}
+          className="w-7 h-7 flex items-center justify-center text-sm hover:opacity-80"
+          style={{ color: "var(--prism-muted)" }}
+        >
+          &#x00D7;
+        </button>
       </div>
+      {!selectedTemplate && (
+        <ul ref={listRef} className="flex-1 overflow-y-auto">
+          {filtered.length === 0 ? (
+            <li
+              className="px-3 py-4 text-sm text-center"
+              style={{ color: "var(--prism-muted)", fontFamily: "var(--font-mono)" }}
+            >
+              {templates.length === 0
+                ? "No templates found. Add .md files to templates/"
+                : "No matching templates"}
+            </li>
+          ) : (
+            filtered.map((t, i) => (
+              <li
+                key={t.path}
+                className="px-3 py-2 text-sm cursor-pointer"
+                style={{
+                  background:
+                    i === selectedIndex
+                      ? "var(--prism-selection)"
+                      : "transparent",
+                  fontFamily: "var(--font-mono)",
+                }}
+                onClick={() => setSelectedTemplate(t)}
+                onMouseEnter={() => setSelectedIndex(i)}
+              >
+                <div style={{ color: "var(--prism-fg)" }}>{t.name}</div>
+                <div
+                  className="truncate"
+                  style={{ color: "var(--prism-muted)", fontSize: "11px" }}
+                >
+                  {t.path}
+                </div>
+              </li>
+            ))
+          )}
+        </ul>
+      )}
     </div>
   );
 }

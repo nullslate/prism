@@ -40,31 +40,34 @@ export function NewFileDialog({ onCreate, onClose }: NewFileDialogProps) {
 
   return (
     <div
-      className="fixed inset-0 flex items-start justify-center pt-16 z-50"
-      style={{ background: "rgba(0,0,0,0.5)" }}
-      onClick={onClose}
+      className="fixed inset-0 z-50 flex flex-col"
+      style={{ background: "var(--prism-bg)" }}
     >
       <div
-        className="w-[28rem] border shadow-lg rounded"
-        style={{
-          background: "var(--prism-bg)",
-          borderColor: "var(--prism-border)",
-        }}
-        onClick={(e) => e.stopPropagation()}
+        className="flex items-center border-b px-3 gap-2"
+        style={{ borderColor: "var(--prism-border)" }}
       >
+        <span style={{ color: "var(--prism-muted)" }}>&#x2B;</span>
         <input
           ref={inputRef}
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="New file name..."
-          className="w-full px-3 py-2 text-sm outline-none"
+          className="flex-1 py-2.5 text-sm outline-none"
           style={{
-            background: "var(--prism-bg)",
+            background: "transparent",
             color: "var(--prism-fg)",
             fontFamily: "var(--font-mono)",
           }}
         />
+        <button
+          onClick={onClose}
+          className="w-7 h-7 flex items-center justify-center text-sm hover:opacity-80"
+          style={{ color: "var(--prism-muted)" }}
+        >
+          &#x00D7;
+        </button>
       </div>
     </div>
   );
