@@ -95,6 +95,7 @@ impl ShortcutConfig {
             ("cycle-theme".into(), "ctrl+shift+t".into()),
             ("vault-search".into(), "ctrl+s".into()),
             ("set-vault".into(), "ctrl+o".into()),
+            ("daily-note".into(), "ctrl+shift+d".into()),
             ("close-overlay".into(), "escape".into()),
         ]);
         let render = HashMap::from([
