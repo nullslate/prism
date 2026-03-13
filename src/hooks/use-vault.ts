@@ -27,6 +27,7 @@ export function useVault() {
     try {
       const md = await commands.readFile(path);
       setContent(md);
+      commands.recordFileOpen(path).catch(() => {});
     } catch (e) {
       log.error("Failed to read file:", e);
       setContent("");

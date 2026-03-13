@@ -43,6 +43,9 @@ export const commands = {
   pluginEmit: (event: string, data?: unknown) => invoke<void>("plugin_emit", { event, data }),
   getDebugFlag: () => invoke<boolean>("get_debug_flag"),
   logMessage: (level: string, message: string) => invoke<void>("log_message", { level, message }),
+  recordFileOpen: (path: string) => invoke<void>("record_file_open", { path }),
+  getRecentFiles: (limit: number) => invoke<string[]>("get_recent_files", { limit }),
+  getFrecencyScores: () => invoke<Record<string, number>>("get_frecency_scores"),
 };
 
 export function onFileChanged(callback: (path: string) => void): Promise<UnlistenFn> {

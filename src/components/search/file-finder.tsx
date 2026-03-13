@@ -10,13 +10,26 @@ interface FileFinderProps {
 export function FileFinder({ onSelect, onClose }: FileFinderProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [recentFiles, setRecentFiles] = useState<SearchResult[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
+    commands.getRecentFiles(10).then((paths) => {
+      setRecentFiles(
+        paths.map((p) => ({
+          path: p,
+          name: p.replace(/\.md$/, "").split("/").pop() || p,
+          score: 0,
+          context: null,
+        })),
+      );
+    }).catch(() => {});
   }, []);
+
+  const displayResults = query ? results : recentFiles;
 
   useEffect(() => {
     const list = listRef.current;
@@ -32,32 +45,32 @@ export function FileFinder({ onSelect, onClose }: FileFinderProps) {
     }
     const timeout = setTimeout(() => {
       commands.fuzzySearch(query).then(setResults);
-    }, 100);
+    }, 30);
     return () => clearTimeout(timeout);
   }, [query]);
 
   useEffect(() => {
     setSelectedIndex(0);
-  }, [results]);
+  }, [results, recentFiles]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "ArrowDown" || (e.key === "j" && e.ctrlKey)) {
         e.preventDefault();
-        setSelectedIndex((i) => Math.min(i + 1, results.length - 1));
+        setSelectedIndex((i) => Math.min(i + 1, displayResults.length - 1));
       } else if (e.key === "ArrowUp" || (e.key === "k" && e.ctrlKey)) {
         e.preventDefault();
         setSelectedIndex((i) => Math.max(i - 1, 0));
-      } else if (e.key === "Enter" && results[selectedIndex]) {
+      } else if (e.key === "Enter" && displayResults[selectedIndex]) {
         e.preventDefault();
-        onSelect(results[selectedIndex].path);
+        onSelect(displayResults[selectedIndex].path);
         onClose();
       } else if (e.key === "Escape") {
         e.preventDefault();
         onClose();
       }
     },
-    [results, selectedIndex, onSelect, onClose],
+    [displayResults, selectedIndex, onSelect, onClose],
   );
 
   return (
@@ -92,7 +105,15 @@ export function FileFinder({ onSelect, onClose }: FileFinderProps) {
         </button>
       </div>
       <ul ref={listRef} className="flex-1 overflow-y-auto">
-        {results.map((r, i) => (
+        {!query && displayResults.length > 0 && (
+          <li
+            className="px-3 py-1.5 text-xs uppercase tracking-wide"
+            style={{ color: "var(--prism-muted)" }}
+          >
+            Recent
+          </li>
+        )}
+        {displayResults.map((r, i) => (
           <li
             key={r.path}
             className="px-3 py-2 text-sm cursor-pointer"
