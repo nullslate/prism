@@ -18,6 +18,8 @@ import { QuickCapture } from "@/components/quick-capture";
 import { TemplatePickerDialog } from "@/components/template-picker";
 import { LinkGraph } from "@/components/link-graph";
 import { ThemePicker } from "@/components/theme-picker";
+import { AnimatedOverlay } from "@/components/animated-overlay";
+import { SidebarPanel } from "@/components/sidebar-panel";
 import { PluginErrorBoundary } from "@/components/plugin-panel";
 import { loadPluginBundle, type PluginUI } from "@/lib/plugin-loader";
 import { useToast } from "@/components/toast";
@@ -554,11 +556,7 @@ function ReaderView() {
   return (
     <>
       <div className="flex flex-1 overflow-hidden">
-        {state.sidebarVisible && (
-          <div
-            className="absolute inset-0 z-40 flex flex-col overflow-hidden"
-            style={{ background: "var(--prism-sidebar-bg)" }}
-          >
+        <SidebarPanel visible={state.sidebarVisible}>
             <div
               className="flex items-center border-b px-3 gap-2 shrink-0"
               style={{ borderColor: "var(--prism-border)" }}
@@ -604,8 +602,7 @@ function ReaderView() {
               onRefresh={refreshFiles}
               onClose={() => dispatch({ type: "TOGGLE_SIDEBAR" })}
             />
-          </div>
-        )}
+        </SidebarPanel>
 
         {state.editorOpen && currentPath && content != null ? (
           <SourceEditor
@@ -642,70 +639,72 @@ function ReaderView() {
       )}
       <StatusBar filePath={currentPath} content={content} />
 
-      {state.overlay === "file-finder" && (
+      <AnimatedOverlay visible={state.overlay === "file-finder"}>
         <FileFinder
-          onSelect={openFile}
-          onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
+          onSelect={(path) => { openFile(path); dispatch({ type: "CLOSE_OVERLAY" }); }}
+          onClose={() => dispatch({ type: "CLOSE_OVERLAY" })}
         />
-      )}
-      {state.overlay === "palette" && (
+      </AnimatedOverlay>
+      <AnimatedOverlay visible={state.overlay === "palette"}>
         <CommandPalette
           commands={allPaletteCommands}
-          onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
+          onClose={() => dispatch({ type: "CLOSE_OVERLAY" })}
         />
-      )}
-      {state.overlay === "new-file" && (
+      </AnimatedOverlay>
+      <AnimatedOverlay visible={state.overlay === "new-file"}>
         <NewFileDialog
           onCreate={createFile}
-          onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
+          onClose={() => dispatch({ type: "CLOSE_OVERLAY" })}
         />
-      )}
-      {state.overlay === "rename" && currentPath && (
-        <RenameDialog
-          currentPath={currentPath}
-          onRename={renameCurrentFile}
-          onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
-        />
-      )}
-      {state.overlay === "tags" && (
+      </AnimatedOverlay>
+      <AnimatedOverlay visible={state.overlay === "rename"}>
+        {currentPath && (
+          <RenameDialog
+            currentPath={currentPath}
+            onRename={renameCurrentFile}
+            onClose={() => dispatch({ type: "CLOSE_OVERLAY" })}
+          />
+        )}
+      </AnimatedOverlay>
+      <AnimatedOverlay visible={state.overlay === "tags"}>
         <TagFilter
           onSelect={(path) => {
             openFile(path);
-            dispatch({ type: "SET_OVERLAY", overlay: "none" });
+            dispatch({ type: "CLOSE_OVERLAY" });
           }}
-          onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
+          onClose={() => dispatch({ type: "CLOSE_OVERLAY" })}
         />
-      )}
-      {state.overlay === "capture" && (
+      </AnimatedOverlay>
+      <AnimatedOverlay visible={state.overlay === "capture"}>
         <QuickCapture
           onCapture={handleCapture}
-          onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
+          onClose={() => dispatch({ type: "CLOSE_OVERLAY" })}
         />
-      )}
-      {state.overlay === "template" && (
+      </AnimatedOverlay>
+      <AnimatedOverlay visible={state.overlay === "template"}>
         <TemplatePickerDialog
           onCreate={createFromTemplate}
-          onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
+          onClose={() => dispatch({ type: "CLOSE_OVERLAY" })}
         />
-      )}
-      {state.overlay === "vault-search" && (
+      </AnimatedOverlay>
+      <AnimatedOverlay visible={state.overlay === "vault-search"}>
         <VaultSearch
-          onSelect={openFile}
-          onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
+          onSelect={(path) => { openFile(path); dispatch({ type: "CLOSE_OVERLAY" }); }}
+          onClose={() => dispatch({ type: "CLOSE_OVERLAY" })}
         />
-      )}
-      {state.overlay === "theme" && (
+      </AnimatedOverlay>
+      <AnimatedOverlay visible={state.overlay === "theme"}>
         <ThemePicker
-          onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
+          onClose={() => dispatch({ type: "CLOSE_OVERLAY" })}
         />
-      )}
-      {state.overlay === "graph" && (
+      </AnimatedOverlay>
+      <AnimatedOverlay visible={state.overlay === "graph"}>
         <LinkGraph
           currentPath={currentPath}
-          onSelect={openFile}
-          onClose={() => dispatch({ type: "SET_OVERLAY", overlay: "none" })}
+          onSelect={(path) => { openFile(path); dispatch({ type: "CLOSE_OVERLAY" }); }}
+          onClose={() => dispatch({ type: "CLOSE_OVERLAY" })}
         />
-      )}
+      </AnimatedOverlay>
       {pendingTrash && (
         <div
           className="fixed bottom-8 left-1/2 -translate-x-1/2 px-4 py-2 rounded text-sm z-50"
