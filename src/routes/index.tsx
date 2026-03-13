@@ -553,14 +553,30 @@ function ReaderView() {
             style={{ background: "var(--prism-sidebar-bg)" }}
           >
             <div
-              className="px-3 py-2 text-xs font-bold uppercase tracking-widest border-b flex items-center justify-between"
-              style={{ color: "var(--prism-muted)", borderColor: "var(--prism-border)" }}
+              className="flex items-center border-b px-3 gap-2 shrink-0"
+              style={{ borderColor: "var(--prism-border)" }}
               data-tauri-drag-region
             >
-              <span>Files</span>
-              <span style={{ color: "var(--prism-muted)", fontSize: "10px", fontWeight: "normal", textTransform: "none" }}>
-                j/k nav &middot; o open &middot; h/l collapse/expand &middot; R rename &middot; dd trash
+              <span style={{ color: "var(--prism-muted)" }}>&#x2636;</span>
+              <span
+                className="text-xs font-bold uppercase tracking-widest flex-1 py-2.5"
+                style={{ color: "var(--prism-muted)" }}
+              >
+                Files
               </span>
+              <button
+                onClick={() => dispatch({ type: "TOGGLE_SIDEBAR" })}
+                className="w-7 h-7 flex items-center justify-center text-sm hover:opacity-80"
+                style={{ color: "var(--prism-muted)" }}
+              >
+                &#x00D7;
+              </button>
+            </div>
+            <div
+              className="px-3 py-1 text-xs border-b shrink-0"
+              style={{ color: "var(--prism-muted)", borderColor: "var(--prism-border)" }}
+            >
+              j/k nav | o open | h/l collapse/expand | R rename | dd trash
             </div>
             {Object.entries(pluginUIs).map(([name, ui]) =>
               ui.sidebar ? (
