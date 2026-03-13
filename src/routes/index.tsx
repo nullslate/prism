@@ -411,6 +411,7 @@ function ReaderView() {
       {
         id: "daily-note",
         label: "Daily Note",
+        shortcut: shortcutLabel("daily-note"),
         action: () => {
           commands.createDailyNote().then((path) => {
             openFile(path);
@@ -465,6 +466,12 @@ function ReaderView() {
       "cycle-theme": () => dispatch({ type: "SET_OVERLAY", overlay: "theme" }),
       "vault-search": () => dispatch({ type: "SET_OVERLAY", overlay: "vault-search" }),
       "set-vault": () => setVault(),
+      "daily-note": () => {
+        commands.createDailyNote().then((path) => {
+          openFile(path);
+          refreshFiles();
+        }).catch(log.error);
+      },
       "close-overlay": () => dispatch({ type: "CLOSE_OVERLAY" }),
     };
 
