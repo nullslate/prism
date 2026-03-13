@@ -29,5 +29,8 @@ src-tauri/target/
 # Worktrees
 .worktrees/
 
+# Superpowers brainstorm sessions
+.superpowers/
+
 # Docs (superpowers plans/specs)
 docs/

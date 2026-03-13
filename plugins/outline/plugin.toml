@@ -1,0 +1,8 @@
+[plugin]
+name = "outline"
+version = "0.1.0"
+description = "Table of contents for the current note"
+author = "Prism"
+
+[ui]
+sidebar = true

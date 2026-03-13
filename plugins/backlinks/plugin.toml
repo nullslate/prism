@@ -1,0 +1,8 @@
+[plugin]
+name = "backlinks"
+version = "0.1.0"
+description = "Show files that link to the current note"
+author = "Prism"
+
+[ui]
+sidebar = true

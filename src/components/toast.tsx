@@ -59,8 +59,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 }
 
 const variantColors: Record<ToastVariant, string> = {
-  success: "var(--prism-syntax-string)",
-  error: "var(--prism-syntax-variable)",
+  success: "#a6e3a1",
+  error: "#f38ba8",
   info: "var(--prism-accent)",
 };
 
@@ -104,7 +104,7 @@ function ToastItem({
 
   return (
     <div
-      className="px-4 py-2 rounded text-sm pointer-events-auto"
+      className="rounded text-sm pointer-events-auto overflow-hidden"
       style={{
         background: "var(--prism-code-bg)",
         border: `1px solid ${variantColors[toast.variant]}`,
@@ -115,7 +115,14 @@ function ToastItem({
         transition: "opacity 200ms, transform 200ms",
       }}
     >
-      {toast.message}
+      <div className="px-4 py-2">{toast.message}</div>
+      <div
+        style={{
+          height: "2px",
+          background: variantColors[toast.variant],
+          animation: `shrink-width ${DISMISS_MS}ms linear forwards`,
+        }}
+      />
     </div>
   );
 }

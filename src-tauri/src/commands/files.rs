@@ -132,10 +132,21 @@ pub fn toggle_todo(
 }
 
 #[tauri::command]
-pub fn write_file(path: String, content: String, config: State<'_, Mutex<PrismConfig>>) -> Result<(), String> {
+pub fn write_file(
+    path: String,
+    content: String,
+    config: State<'_, Mutex<PrismConfig>>,
+    lua_runtime: State<'_, Mutex<LuaRuntime>>,
+) -> Result<(), String> {
     let config = config.lock().map_err(|e| e.to_string())?;
     let full_path = config.vault_path().join(&path);
-    fs::write(&full_path, content).map_err(|e| format!("Failed to write {}: {}", path, e))
+    fs::write(&full_path, &content).map_err(|e| format!("Failed to write {}: {}", path, e))?;
+
+    if let Ok(runtime) = lua_runtime.lock() {
+        runtime.dispatch("file:saved", Some(serde_json::json!({ "path": path })));
+    }
+
+    Ok(())
 }
 
 #[tauri::command]

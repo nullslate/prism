@@ -20,6 +20,7 @@ import { LinkGraph } from "@/components/link-graph";
 import { ThemePicker } from "@/components/theme-picker";
 import { PluginErrorBoundary } from "@/components/plugin-panel";
 import { loadPluginBundle, type PluginUI } from "@/lib/plugin-loader";
+import { ContentSkeleton } from "@/components/content-skeleton";
 import { useToast } from "@/components/toast";
 import { commands } from "@/lib/tauri";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -38,7 +39,7 @@ export const Route = createFileRoute("/")(
 });
 
 function ReaderView() {
-  const { files, currentPath, content, openFile, closeFile, refreshFiles, setContent } =
+  const { files, currentPath, content, loading, openFile, closeFile, refreshFiles, setContent } =
     useVault();
   const { config, shortcuts, favorites, pluginCommands, toggleFavorite } = usePrism();
   const { state, dispatch, readerRef } = useReader();
@@ -178,6 +179,11 @@ function ReaderView() {
   const closeEditor = useCallback(() => {
     dispatch({ type: "CLOSE_EDITOR" });
   }, [dispatch]);
+
+  const handleEditorSave = useCallback((text: string) => {
+    setContent(text);
+    dispatch({ type: "SAVE_FLASH" });
+  }, [setContent, dispatch]);
 
   const createFile = useCallback(
     (path: string) => {
@@ -612,7 +618,7 @@ function ReaderView() {
             content={content}
             filePath={currentPath}
             scrollLine={scrollLineRef.current}
-            onSave={setContent}
+            onSave={handleEditorSave}
             onExit={closeEditor}
           />
         ) : (
@@ -621,7 +627,9 @@ function ReaderView() {
             ref={readerRef}
             onScroll={saveScrollPosition}
           >
-            {content ? (
+            {loading ? (
+              <ContentSkeleton />
+            ) : content ? (
               <MarkdownViewer content={content} onNavigate={navigateWikiLink} />
             ) : (
               <div

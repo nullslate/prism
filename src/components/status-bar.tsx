@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
 import { useReader } from "@/components/reader-provider";
 import { usePrism } from "@/components/prism-provider";
 
@@ -12,6 +12,14 @@ export const StatusBar = memo(function StatusBar({ filePath, content }: StatusBa
   const { pluginStatusItems } = usePrism();
   const wordCount = content ? content.split(/\s+/).filter(Boolean).length : 0;
   const mode = state.editorOpen ? "EDITOR" : "RENDER";
+  const [flash, setFlash] = useState(false);
+
+  useEffect(() => {
+    if (!state.saveFlash) return;
+    setFlash(true);
+    const timer = setTimeout(() => setFlash(false), 300);
+    return () => clearTimeout(timer);
+  }, [state.saveFlash]);
 
   return (
     <footer
@@ -25,8 +33,12 @@ export const StatusBar = memo(function StatusBar({ filePath, content }: StatusBa
     >
       <div className="flex items-center gap-2">
         <span
-          className="px-1.5 text-xs font-bold uppercase"
-          style={{ color: state.editorOpen ? "var(--prism-accent)" : "var(--prism-muted)" }}
+          className="px-1.5 text-xs font-bold uppercase rounded"
+          style={{
+            color: flash ? "#1e1e2e" : state.editorOpen ? "var(--prism-accent)" : "var(--prism-muted)",
+            background: flash ? "#a6e3a1" : "transparent",
+            transition: "background 150ms, color 150ms",
+          }}
         >
           {mode}
         </span>

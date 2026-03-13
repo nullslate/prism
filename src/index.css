@@ -66,3 +66,33 @@ main {
 .hljs-attribute { color: var(--prism-syntax-function); }
 .hljs-emphasis { font-style: italic; }
 .hljs-strong { font-weight: bold; }
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton-line {
+  height: 14px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--prism-border) 25%, var(--prism-selection) 50%, var(--prism-border) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  margin-bottom: 12px;
+}
+
+@keyframes shrink-width {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
+.file-tree-cursor {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  height: 32px;
+  background: var(--prism-selection);
+  border-radius: 4px;
+  transition: top 120ms cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+  z-index: 0;
+}
