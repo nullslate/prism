@@ -34,3 +34,4 @@ src-tauri/target/
 
 # Docs (superpowers plans/specs)
 docs/
+.claude/worktrees/
