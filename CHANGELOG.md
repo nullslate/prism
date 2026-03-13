@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.7.0] - 2026-03-13
+
+### Features
+
+- **Transitions & Animations**: AnimatedOverlay with fade in/out for all fullscreen overlays, sidebar slide animation, file tree grid-based expand/collapse, global hover transitions, focus-visible rings, smooth theme color morphing
+- **Typography overhaul**: Refined heading scale (h1-h6), accent-bordered code blocks, styled blockquotes, lists with muted markers, alternating-row tables, 72ch max-width prose, link hover underlines
+- **Skeleton loading**: Shimmer skeleton placeholder during file loads with content fade-in
+- **Which-key popup**: Shows available key continuations after 200ms delay with extended 2s sequence timeout
+- **Search speed**: In-memory file index cache (eliminates per-search filesystem traversal), per-vault frecency tracking with 7-day half-life decay, recent files shown on empty query, debounce reduced from 100ms to 30ms
+- **Micro-interactions**: Save flash on `:w` (green pill on mode indicator), toast progress bars with variant colors, sliding file tree cursor highlight
+- **Plugin foundations**: Backlinks and outline first-party plugin scaffolds, `file:saved` event emission in plugin event bus
+- Colored mode indicator pill in status bar (accent when editing, muted when reading)
+- Key sequence display with accent color flash
+
+### Changed
+
+- All fullscreen overlays now animate in/out instead of instant toggle
+- Sidebar slides in from left instead of instant appear
+- File tree cursor slides between items instead of jumping
+
 ## [0.6.1] - 2026-03-13
 
 ### Changed
