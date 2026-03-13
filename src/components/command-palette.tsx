@@ -57,60 +57,62 @@ export function CommandPalette({ commands: cmds, onClose }: CommandPaletteProps)
 
   return (
     <div
-      className="fixed inset-0 flex items-start justify-center pt-16 z-50"
-      style={{ background: "rgba(0,0,0,0.5)" }}
-      onClick={onClose}
+      className="fixed inset-0 z-50 flex flex-col"
+      style={{ background: "var(--prism-bg)" }}
     >
       <div
-        className="w-[28rem] border shadow-lg rounded"
-        style={{
-          background: "var(--prism-bg)",
-          borderColor: "var(--prism-border)",
-        }}
-        onClick={(e) => e.stopPropagation()}
+        className="flex items-center border-b px-3 gap-2"
+        style={{ borderColor: "var(--prism-border)" }}
       >
+        <span style={{ color: "var(--prism-muted)" }}>&#x2318;</span>
         <input
           ref={inputRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Type a command..."
-          className="w-full px-3 py-2 text-sm outline-none border-b"
+          className="flex-1 py-2.5 text-sm outline-none"
           style={{
-            background: "var(--prism-bg)",
+            background: "transparent",
             color: "var(--prism-fg)",
-            borderColor: "var(--prism-border)",
             fontFamily: "var(--font-mono)",
           }}
         />
-        <ul ref={listRef} className="max-h-72 overflow-y-auto">
-          {filtered.map((cmd, i) => (
-            <li
-              key={cmd.id}
-              className="px-3 py-2 text-sm cursor-pointer flex items-center justify-between"
-              style={{
-                background:
-                  i === selectedIndex
-                    ? "var(--prism-selection)"
-                    : "transparent",
-                fontFamily: "var(--font-mono)",
-              }}
-              onClick={() => {
-                onClose();
-                cmd.action();
-              }}
-              onMouseEnter={() => setSelectedIndex(i)}
-            >
-              <span style={{ color: "var(--prism-fg)" }}>{cmd.label}</span>
-              {cmd.shortcut && (
-                <span style={{ color: "var(--prism-muted)" }}>
-                  {cmd.shortcut}
-                </span>
-              )}
-            </li>
-          ))}
-        </ul>
+        <button
+          onClick={onClose}
+          className="w-7 h-7 flex items-center justify-center text-sm hover:opacity-80"
+          style={{ color: "var(--prism-muted)" }}
+        >
+          &#x00D7;
+        </button>
       </div>
+      <ul ref={listRef} className="flex-1 overflow-y-auto">
+        {filtered.map((cmd, i) => (
+          <li
+            key={cmd.id}
+            className="px-3 py-2 text-sm cursor-pointer flex items-center justify-between"
+            style={{
+              background:
+                i === selectedIndex
+                  ? "var(--prism-selection)"
+                  : "transparent",
+              fontFamily: "var(--font-mono)",
+            }}
+            onClick={() => {
+              onClose();
+              cmd.action();
+            }}
+            onMouseEnter={() => setSelectedIndex(i)}
+          >
+            <span style={{ color: "var(--prism-fg)" }}>{cmd.label}</span>
+            {cmd.shortcut && (
+              <span style={{ color: "var(--prism-muted)" }}>
+                {cmd.shortcut}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

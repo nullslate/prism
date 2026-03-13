@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.6.0] - 2026-03-13
+
+### Features
+
+- Fullscreen command palette with inline close button (inspired by sandybridge.io mobile search)
+- Theme picker color palette: 12 live-updating color swatches (bg, fg, accent, syntax colors) shown while browsing themes
+- Structured logging with env_logger and colored terminal output (error/warn/info/debug levels)
+- Debug mode toggle via `debug = true` in config.toml
+- Plugin log levels: `prism.log.debug()`, `prism.log.info()`, `prism.log.warn()`, `prism.log.error()` in Lua plugins
+- Frontend `log_message` command for bridging webview logs to the backend logger
+
+### Fixed
+
+- Window not draggable when sidebar is open on Windows/macOS (added drag region to sidebar header)
+
+### Changed
+
+- Command palette and theme picker are now fullscreen overlays instead of centered modals
+- Migrated backend logging from `eprintln!` to the `log` crate
+- Updated repo URLs to nullslate org
+
 ## [0.5.0] - 2026-03-12
 
 ### Features

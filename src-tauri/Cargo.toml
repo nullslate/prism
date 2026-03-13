@@ -1,6 +1,6 @@
 [package]
 name = "prism"
-version = "0.5.0"
+version = "0.6.0"
 description = "A keyboard-driven markdown vault reader"
 authors = ["thesandybridge"]
 edition = "2021"
@@ -34,4 +34,7 @@ base64 = "0.22"
 chrono = "0.4"
 tauri-plugin-dialog = "2.6.0"
 mlua = { version = "0.10", features = ["lua54", "serialize", "send", "vendored"] }
+env_logger = "0.11"
+log = "0.4"
+colored = "2"
 

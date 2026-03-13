@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use colored::Colorize;
+use log::{debug, error, info, warn};
 use mlua::prelude::*;
 use std::collections::HashMap;
 use std::path::Path;
@@ -143,11 +145,49 @@ impl LuaRuntime {
         let prism = lua.create_table()?;
         let name = plugin_name.to_string();
 
-        let log_name = name.clone();
-        prism.set("log", lua.create_function(move |_, msg: String| {
-            eprintln!("[prism:{}] {}", log_name, msg);
+        // Legacy log function (maps to info)
+        let log_name_legacy = name.clone();
+        let log_func = lua.create_function(move |_, msg: String| {
+            info!("{}: {}", log_name_legacy.bold(), msg);
+            Ok(())
+        })?;
+        
+        // Create log table with level functions  
+        let log_table = lua.create_table()?;
+        
+        // Make the log table callable for backward compatibility
+        log_table.set_metatable(Some({
+            let mt = lua.create_table()?;
+            mt.set("__call", log_func.clone())?;
+            mt
+        }));
+        
+        // Log level functions
+        let log_name_debug = name.clone();
+        log_table.set("debug", lua.create_function(move |_, msg: String| {
+            debug!("{}: {}", log_name_debug.bold(), msg);
             Ok(())
         })?)?;
+        
+        let log_name_info = name.clone();
+        log_table.set("info", lua.create_function(move |_, msg: String| {
+            info!("{}: {}", log_name_info.bold(), msg);
+            Ok(())
+        })?)?;
+        
+        let log_name_warn = name.clone();
+        log_table.set("warn", lua.create_function(move |_, msg: String| {
+            warn!("{}: {}", log_name_warn.bold(), msg);
+            Ok(())
+        })?)?;
+        
+        let log_name_error = name.clone();
+        log_table.set("error", lua.create_function(move |_, msg: String| {
+            error!("{}: {}", log_name_error.bold(), msg);
+            Ok(())
+        })?)?;
+        
+        prism.set("log", log_table)?;
 
         let on_handlers = lua.create_table()?;
         lua.set_named_registry_value("__prism_on_handlers", on_handlers)?;

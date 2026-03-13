@@ -554,6 +554,7 @@ function ReaderView() {
             <div
               className="px-3 py-2 text-xs font-bold uppercase tracking-widest border-b flex items-center justify-between"
               style={{ color: "var(--prism-muted)", borderColor: "var(--prism-border)" }}
+              data-tauri-drag-region
             >
               <span>Files</span>
               <span style={{ color: "var(--prism-muted)", fontSize: "10px", fontWeight: "normal", textTransform: "none" }}>

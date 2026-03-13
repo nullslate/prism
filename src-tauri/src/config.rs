@@ -25,6 +25,8 @@ pub struct PrismConfig {
     pub shortcuts: ShortcutConfig,
     #[serde(default)]
     pub plugins: Vec<PluginSpec>,
+    #[serde(default = "default_debug")]
+    pub debug: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -196,6 +198,9 @@ fn default_inbox() -> String {
 fn default_hotkey() -> String {
     "ctrl+space".into()
 }
+fn default_debug() -> bool {
+    false
+}
 
 impl Default for WindowConfig {
     fn default() -> Self {
@@ -221,6 +226,7 @@ impl Default for PrismConfig {
             favorites: vec![],
             shortcuts: ShortcutConfig::default(),
             plugins: vec![],
+            debug: default_debug(),
         }
     }
 }

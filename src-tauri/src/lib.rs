@@ -1,10 +1,11 @@
 mod commands;
-mod config;
+pub mod config;
 mod plugins;
 mod theme;
 mod watcher;
 
 use config::PrismConfig;
+use log::{error, info, warn};
 use plugins::lua_runtime::LuaRuntime;
 use std::sync::Mutex;
 use tauri::Emitter;
@@ -86,10 +87,10 @@ pub fn run() {
                 if let Some(info) = plugin_manager.plugins.get_mut(name) {
                     info.loaded = true;
                 }
-                eprintln!("[prism] loaded plugin: {}", name);
+                info!("loaded plugin: {}", name);
             }
             Err(e) => {
-                eprintln!("[prism] failed to load plugin '{}': {}", name, e);
+                error!("failed to load plugin '{}': {}", name, e);
                 if let Some(info) = plugin_manager.plugins.get_mut(name) {
                     info.error = Some(e.clone());
                 }
@@ -223,6 +224,7 @@ pub fn run() {
             commands::config::set_config,
             commands::config::reload_config,
             commands::config::get_shortcuts,
+            commands::config::get_debug_flag,
             commands::files::list_files,
             commands::files::read_file,
             commands::files::write_file,
@@ -256,6 +258,7 @@ pub fn run() {
             commands::plugins::update_plugins,
             commands::plugins::clean_plugins,
             commands::plugins::plugin_emit,
+            commands::logger::log_message,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

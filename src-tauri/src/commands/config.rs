@@ -15,6 +15,12 @@ pub fn get_shortcuts(config: State<'_, Mutex<PrismConfig>>) -> Result<ShortcutCo
 }
 
 #[tauri::command]
+pub fn get_debug_flag(config: State<'_, Mutex<PrismConfig>>) -> Result<bool, String> {
+    let config = config.lock().map_err(|e| e.to_string())?;
+    Ok(config.debug)
+}
+
+#[tauri::command]
 pub fn reload_config(config: State<'_, Mutex<PrismConfig>>) -> Result<PrismConfig, String> {
     let fresh = PrismConfig::load()?;
     let mut current = config.lock().map_err(|e| e.to_string())?;

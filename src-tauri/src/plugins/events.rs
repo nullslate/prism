@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use log::error;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -58,7 +59,7 @@ impl EventBus {
                         }
                     }
                     Err(_) => {
-                        eprintln!("[prism] plugin '{}' panicked in file:pre-render", plugin_name);
+                        error!("plugin '{}' panicked in file:pre-render", plugin_name);
                     }
                 }
             }
@@ -68,7 +69,7 @@ impl EventBus {
                 match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| handler(payload))) {
                     Ok(_) => {}
                     Err(_) => {
-                        eprintln!("[prism] plugin '{}' panicked in {}", plugin_name, payload.event);
+                        error!("plugin '{}' panicked in {}", plugin_name, payload.event);
                     }
                 }
             }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { commands } from "@/lib/tauri";
 import { usePrism } from "@/components/prism-provider";
+import type { ThemeColors } from "@/lib/types";
 
 interface ThemePickerProps {
   onClose: () => void;
@@ -14,6 +15,7 @@ export function ThemePicker({ onClose }: ThemePickerProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const [query, setQuery] = useState("");
+  const [previewColors, setPreviewColors] = useState<ThemeColors | null>(null);
 
   useEffect(() => {
     commands.listThemes().then((t) => {
@@ -47,6 +49,7 @@ export function ThemePicker({ onClose }: ThemePickerProps) {
     commands.getTheme(name).then((theme) => {
       const root = document.documentElement;
       const c = theme.colors;
+      setPreviewColors(c);
       root.style.setProperty("--prism-bg", c.bg);
       root.style.setProperty("--prism-fg", c.fg);
       root.style.setProperty("--prism-accent", c.accent);
@@ -116,57 +119,94 @@ export function ThemePicker({ onClose }: ThemePickerProps) {
     [filtered, save, revert, onClose],
   );
 
+  const paletteSwatches = previewColors
+    ? [
+        { color: previewColors.bg, label: "bg" },
+        { color: previewColors.fg, label: "fg" },
+        { color: previewColors.accent, label: "accent" },
+        { color: previewColors.sidebar_bg, label: "sidebar" },
+        { color: previewColors.selection, label: "sel" },
+        { color: previewColors.code_bg, label: "code" },
+        { color: previewColors.syntax_keyword, label: "kw" },
+        { color: previewColors.syntax_string, label: "str" },
+        { color: previewColors.syntax_function, label: "fn" },
+        { color: previewColors.syntax_comment, label: "cmt" },
+        { color: previewColors.syntax_type, label: "type" },
+        { color: previewColors.syntax_variable, label: "var" },
+      ]
+    : [];
+
   return (
     <div
-      className="fixed inset-0 flex items-start justify-center pt-16 z-50"
-      style={{ background: "rgba(0,0,0,0.5)" }}
-      onClick={() => { revert(); onClose(); }}
+      className="fixed inset-0 z-50 flex flex-col"
+      style={{ background: "var(--prism-bg)" }}
     >
       <div
-        className="w-[28rem] border shadow-lg rounded"
-        style={{
-          background: "var(--prism-bg)",
-          borderColor: "var(--prism-border)",
-        }}
-        onClick={(e) => e.stopPropagation()}
+        className="flex items-center border-b px-3 gap-2"
+        style={{ borderColor: "var(--prism-border)" }}
       >
+        <span style={{ color: "var(--prism-muted)" }}>&#x25cf;</span>
         <input
           ref={inputRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Select theme..."
-          className="w-full px-3 py-2 text-sm outline-none border-b"
+          className="flex-1 py-2.5 text-sm outline-none"
           style={{
-            background: "var(--prism-bg)",
+            background: "transparent",
             color: "var(--prism-fg)",
-            borderColor: "var(--prism-border)",
             fontFamily: "var(--font-mono)",
           }}
         />
-        <ul ref={listRef} className="max-h-72 overflow-y-auto">
-          {filtered.map((name, i) => (
-            <li
-              key={name}
-              className="px-3 py-2 text-sm cursor-pointer flex items-center justify-between"
-              style={{
-                background: i === cursor ? "var(--prism-selection)" : "transparent",
-                fontFamily: "var(--font-mono)",
-              }}
-              onClick={() => {
-                setCursor(i);
-                save();
-              }}
-              onMouseEnter={() => setCursor(i)}
-            >
-              <span style={{ color: "var(--prism-fg)" }}>{name}</span>
-              {name === originalTheme.current && (
-                <span style={{ color: "var(--prism-muted)" }}>current</span>
-              )}
-            </li>
-          ))}
-        </ul>
+        <button
+          onClick={() => { revert(); onClose(); }}
+          className="w-7 h-7 flex items-center justify-center text-sm hover:opacity-80"
+          style={{ color: "var(--prism-muted)" }}
+        >
+          &#x00D7;
+        </button>
       </div>
+      {paletteSwatches.length > 0 && (
+        <div
+          className="flex items-center gap-1 px-3 py-2 border-b"
+          style={{ borderColor: "var(--prism-border)" }}
+        >
+          {paletteSwatches.map((s) => (
+            <div
+              key={s.label}
+              title={s.label}
+              className="flex-1 h-4 rounded-sm"
+              style={{
+                background: s.color,
+                border: "1px solid var(--prism-border)",
+              }}
+            />
+          ))}
+        </div>
+      )}
+      <ul ref={listRef} className="flex-1 overflow-y-auto">
+        {filtered.map((name, i) => (
+          <li
+            key={name}
+            className="px-3 py-2 text-sm cursor-pointer flex items-center justify-between"
+            style={{
+              background: i === cursor ? "var(--prism-selection)" : "transparent",
+              fontFamily: "var(--font-mono)",
+            }}
+            onClick={() => {
+              setCursor(i);
+              save();
+            }}
+            onMouseEnter={() => setCursor(i)}
+          >
+            <span style={{ color: "var(--prism-fg)" }}>{name}</span>
+            {name === originalTheme.current && (
+              <span style={{ color: "var(--prism-muted)" }}>current</span>
+            )}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
