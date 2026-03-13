@@ -155,47 +155,44 @@ export function LinkGraph({ currentPath, onSelect, onClose }: LinkGraphProps) {
 
   return (
     <div
-      className="fixed inset-0 flex items-start justify-center pt-8 z-50"
-      style={{ background: "rgba(0,0,0,0.5)" }}
-      onClick={onClose}
+      className="fixed inset-0 z-50 flex flex-col"
+      style={{ background: "var(--prism-bg)" }}
     >
+      {/* Header */}
       <div
-        className="w-[26rem] max-h-[80vh] border shadow-lg rounded flex flex-col"
-        style={{
-          background: "var(--prism-bg)",
-          borderColor: "var(--prism-border)",
-        }}
-        onClick={(e) => e.stopPropagation()}
+        className="flex items-center border-b px-3 gap-2 shrink-0"
+        style={{ borderColor: "var(--prism-border)" }}
       >
-        {/* Header */}
-        <div
-          className="px-3 py-2 border-b flex items-center justify-between shrink-0"
-          style={{ borderColor: "var(--prism-border)" }}
+        <span style={{ color: "var(--prism-muted)" }}>&#x2b95;</span>
+        <span
+          className="text-sm font-medium truncate flex-1 py-2.5"
+          style={{ color: "var(--prism-accent)" }}
+          title={focusPath ?? undefined}
         >
-          <div className="flex items-center gap-2 min-w-0">
-            <span
-              className="text-sm font-medium truncate"
-              style={{ color: "var(--prism-accent)" }}
-              title={focusPath ?? undefined}
-            >
-              {focusLabel}
-            </span>
-          </div>
-          <span className="text-xs shrink-0 ml-2" style={{ color: "var(--prism-muted)" }}>
-            {loading ? "..." : `${stats.nodes}n ${stats.edges}e`}
-          </span>
-        </div>
-
-        {/* Vim hints */}
-        <div
-          className="px-3 py-1 text-xs border-b shrink-0"
-          style={{ color: "var(--prism-muted)", borderColor: "var(--prism-border)" }}
+          {focusLabel}
+        </span>
+        <span className="text-xs shrink-0" style={{ color: "var(--prism-muted)" }}>
+          {loading ? "..." : `${stats.nodes}n ${stats.edges}e`}
+        </span>
+        <button
+          onClick={onClose}
+          className="w-7 h-7 flex items-center justify-center text-sm hover:opacity-80"
+          style={{ color: "var(--prism-muted)" }}
         >
-          j/k nav | l explore | h back | enter open | esc close
-        </div>
+          &#x00D7;
+        </button>
+      </div>
 
-        {/* Body */}
-        <div ref={listRef} className="overflow-y-auto flex-1 min-h-0">
+      {/* Vim hints */}
+      <div
+        className="px-3 py-1 text-xs border-b shrink-0"
+        style={{ color: "var(--prism-muted)", borderColor: "var(--prism-border)" }}
+      >
+        j/k nav | l explore | h back | enter open | esc close
+      </div>
+
+      {/* Body */}
+      <div ref={listRef} className="overflow-y-auto flex-1">
           {!focusPath && (
             <div className="px-3 py-4 text-sm" style={{ color: "var(--prism-muted)" }}>
               Open a file to explore its links
@@ -280,7 +277,6 @@ export function LinkGraph({ currentPath, onSelect, onClose }: LinkGraphProps) {
             </div>
           )}
         </div>
-      </div>
     </div>
   );
 }
