@@ -146,8 +146,9 @@ impl LuaRuntime {
         let name = plugin_name.to_string();
 
         // Legacy log function (maps to info)
+        // __call receives (self_table, msg) so we take a tuple
         let log_name_legacy = name.clone();
-        let log_func = lua.create_function(move |_, msg: String| {
+        let log_func = lua.create_function(move |_, (_self_table, msg): (LuaValue, String)| {
             info!("{}: {}", log_name_legacy.bold(), msg);
             Ok(())
         })?;
@@ -240,7 +241,7 @@ impl LuaRuntime {
         })?)?;
 
         prism.set("toast", lua.create_function(|_, (msg, _level): (String, Option<String>)| {
-            eprintln!("[prism:toast] {}", msg);
+            info!("toast: {}", msg);
             Ok(())
         })?)?;
 
@@ -270,7 +271,7 @@ impl LuaRuntime {
             let func: LuaFunction = match lua.registry_value(reg_key) {
                 Ok(f) => f,
                 Err(e) => {
-                    eprintln!("[prism:{}] failed to get handler: {}", plugin_name, e);
+                    error!("{}: failed to get handler: {}", plugin_name, e);
                     continue;
                 }
             };
@@ -292,10 +293,10 @@ impl LuaRuntime {
                 }
                 Ok(Ok(None)) => {}
                 Ok(Err(e)) => {
-                    eprintln!("[prism:{}] file:pre-render error: {}", plugin_name, e);
+                    error!("{}: file:pre-render error: {}", plugin_name, e);
                 }
                 Err(_) => {
-                    eprintln!("[prism:{}] panicked in file:pre-render", plugin_name);
+                    error!("{}: panicked in file:pre-render", plugin_name);
                 }
             }
         }
@@ -317,7 +318,7 @@ impl LuaRuntime {
             let func: LuaFunction = match lua.registry_value(reg_key) {
                 Ok(f) => f,
                 Err(e) => {
-                    eprintln!("[prism:{}] failed to get handler for {}: {}", plugin_name, event, e);
+                    error!("{}: failed to get handler for {}: {}", plugin_name, event, e);
                     continue;
                 }
             };
@@ -338,10 +339,10 @@ impl LuaRuntime {
             })) {
                 Ok(Ok(())) => {}
                 Ok(Err(e)) => {
-                    eprintln!("[prism:{}] error in {}: {}", plugin_name, event, e);
+                    error!("{}: error in {}: {}", plugin_name, event, e);
                 }
                 Err(_) => {
-                    eprintln!("[prism:{}] panicked in {}", plugin_name, event);
+                    error!("{}: panicked in {}", plugin_name, event);
                 }
             }
         }

@@ -17,26 +17,45 @@ fn init_logger(debug: bool) {
         .filter_level(level)
         .format(|buf, record| {
             let level_colored = match record.level() {
-                log::Level::Error => record.level().to_string().red(),
-                log::Level::Warn => record.level().to_string().yellow(),
-                log::Level::Info => record.level().to_string().green(),
-                log::Level::Debug => record.level().to_string().cyan(),
-                log::Level::Trace => record.level().to_string().purple(),
+                log::Level::Error => record.level().to_string().red().bold(),
+                log::Level::Warn => record.level().to_string().yellow().bold(),
+                log::Level::Info => record.level().to_string().green().bold(),
+                log::Level::Debug => record.level().to_string().cyan().bold(),
+                log::Level::Trace => record.level().to_string().purple().bold(),
             };
-            
-            writeln!(
-                buf,
-                "{} {} {}: {}",
-                "[prism]".bold(),
-                level_colored,
-                record.target(),
-                record.args()
-            )
+
+            // Strip the crate prefix for cleaner output
+            let target = record.target()
+                .strip_prefix("prism_lib::")
+                .or_else(|| record.target().strip_prefix("prism::"))
+                .unwrap_or(record.target());
+
+            if target == "prism_lib" || target == "prism" {
+                writeln!(
+                    buf,
+                    "{} {} {}",
+                    "[prism]".purple().bold(),
+                    level_colored,
+                    record.args()
+                )
+            } else {
+                writeln!(
+                    buf,
+                    "{} {} {}: {}",
+                    "[prism]".purple().bold(),
+                    level_colored,
+                    target.dimmed(),
+                    record.args()
+                )
+            }
         })
         .init();
 }
 
 fn main() {
+    // Force colored output even when piped (e.g. tauri dev)
+    colored::control::set_override(true);
+
     // Load config to check debug flag
     let config = prism_lib::config::PrismConfig::load().unwrap_or_default();
     init_logger(config.debug);

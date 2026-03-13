@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { commands } from "@/lib/tauri";
+import { log } from "@/lib/logger";
 import type { TagInfo, TaggedFile } from "@/lib/types";
 
 interface TagFilterProps {
@@ -17,7 +18,7 @@ export function TagFilter({ onSelect, onClose }: TagFilterProps) {
   const listRef = useRef<HTMLUListElement>(null);
 
   useEffect(() => {
-    commands.listTags().then(setTags).catch(console.error);
+    commands.listTags().then(setTags).catch(log.error);
   }, []);
 
   useEffect(() => {
@@ -51,7 +52,7 @@ export function TagFilter({ onSelect, onClose }: TagFilterProps) {
         const result = await commands.filesForTag(tag);
         setFiles(result);
       } catch (e) {
-        console.error("Failed to load files for tag:", e);
+        log.error("Failed to load files for tag:", e);
       }
     },
     [],

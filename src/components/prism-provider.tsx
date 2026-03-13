@@ -3,10 +3,12 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import { commands, onConfigChanged } from "@/lib/tauri";
 import { useTheme } from "@/hooks/use-theme";
+import { log, setDebugEnabled, printBanner } from "@/lib/logger";
 import type { Favorite, PrismConfig, ShortcutConfig, PluginCommand, PluginStatusItem } from "@/lib/types";
 
 interface PrismContextValue {
@@ -38,17 +40,33 @@ export function PrismProvider({ children }: { children: React.ReactNode }) {
   const [pluginCommands, setPluginCommands] = useState<PluginCommand[]>([]);
   const [pluginStatusItems, setPluginStatusItems] = useState<PluginStatusItem[]>([]);
 
+  const bannerPrinted = useRef(false);
+
   const loadConfig = useCallback(() => {
     commands
       .getConfig()
       .then((cfg) => {
         setConfig(cfg);
         setFavorites(cfg.favorites);
+        if (!bannerPrinted.current) {
+          bannerPrinted.current = true;
+          commands.getDebugFlag().then((debug) => {
+            setDebugEnabled(debug);
+            printBanner({ theme: cfg.theme, vault: cfg.vault, debug });
+            log.info("config loaded");
+            log.info("theme:", cfg.theme);
+            log.info("vault:", cfg.vault);
+            log.info("favorites:", cfg.favorites.length);
+          }).catch(() => {
+            printBanner({ theme: cfg.theme, vault: cfg.vault, debug: false });
+            log.info("config loaded");
+          });
+        }
       })
-      .catch(console.error);
-    commands.getShortcuts().then(setShortcuts).catch(console.error);
-    commands.getPluginCommands().then(setPluginCommands).catch(console.error);
-    commands.getPluginStatusItems().then(setPluginStatusItems).catch(console.error);
+      .catch((e) => log.error("Failed to load config:", e));
+    commands.getShortcuts().then(setShortcuts).catch((e) => log.error("Failed to load shortcuts:", e));
+    commands.getPluginCommands().then(setPluginCommands).catch((e) => log.error("Failed to load plugin commands:", e));
+    commands.getPluginStatusItems().then(setPluginStatusItems).catch((e) => log.error("Failed to load plugin status:", e));
   }, []);
 
   useEffect(() => {
@@ -60,10 +78,11 @@ export function PrismProvider({ children }: { children: React.ReactNode }) {
       commands.reloadConfig().then((cfg) => {
         setConfig(cfg);
         setFavorites(cfg.favorites);
-      }).catch(console.error);
-      commands.getShortcuts().then(setShortcuts).catch(console.error);
-      commands.getPluginCommands().then(setPluginCommands).catch(console.error);
-      commands.getPluginStatusItems().then(setPluginStatusItems).catch(console.error);
+      }).catch((e) => log.error("Failed to reload config:", e));
+      commands.getShortcuts().then(setShortcuts).catch((e) => log.error("Failed to reload shortcuts:", e));
+      commands.getPluginCommands().then(setPluginCommands).catch((e) => log.error("Failed to reload plugin commands:", e));
+      commands.getPluginStatusItems().then(setPluginStatusItems).catch((e) => log.error("Failed to reload plugin status:", e));
+      commands.getDebugFlag().then(setDebugEnabled).catch(() => {});
     });
     return () => { unlisten.then((fn) => fn()); };
   }, []);
@@ -71,7 +90,7 @@ export function PrismProvider({ children }: { children: React.ReactNode }) {
   useTheme(config?.theme ?? "catppuccin-mocha");
 
   const toggleFavorite = useCallback((path: string, label: string) => {
-    commands.toggleFavorite(path, label).then(setFavorites).catch(console.error);
+    commands.toggleFavorite(path, label).then(setFavorites).catch((e) => log.error("Failed to toggle favorite:", e));
   }, []);
 
   return (

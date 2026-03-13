@@ -1,3 +1,4 @@
+use log::{debug, error, info};
 use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
@@ -19,6 +20,7 @@ pub fn start_watcher(
     let mut watcher =
         RecommendedWatcher::new(tx, Config::default()).map_err(|e| e.to_string())?;
 
+    info!("watching vault: {}", vault_path.display());
     watcher
         .watch(vault_path, RecursiveMode::Recursive)
         .map_err(|e| e.to_string())?;
@@ -26,6 +28,7 @@ pub fn start_watcher(
     // Watch config directory (contains config.toml and themes/)
     if let Some(config_dir) = config_path.parent() {
         if config_dir.exists() {
+            info!("watching config dir: {}", config_dir.display());
             let _ = watcher.watch(config_dir, RecursiveMode::Recursive);
         }
     }
@@ -35,24 +38,31 @@ pub fn start_watcher(
 
     std::thread::spawn(move || {
         while let Ok(result) = rx.recv() {
-            if let Ok(Event { kind, paths, .. }) = result {
-                use notify::EventKind::*;
-                match kind {
-                    Modify(_) | Create(_) | Remove(_) => {
-                        for path in &paths {
-                            if *path == config_file || *path == vault_config_file || path.starts_with(config_file.parent().unwrap_or(&PathBuf::new()).join("themes")) {
-                                let _ = app.emit("config-changed", ());
-                            } else if path.extension().is_some_and(|ext| ext == "md") {
-                                let _ = app.emit(
-                                    "file-changed",
-                                    FileChangedPayload {
-                                        path: path.to_string_lossy().to_string(),
-                                    },
-                                );
+            match result {
+                Ok(Event { kind, paths, .. }) => {
+                    use notify::EventKind::*;
+                    match kind {
+                        Modify(_) | Create(_) | Remove(_) => {
+                            for path in &paths {
+                                if *path == config_file || *path == vault_config_file || path.starts_with(config_file.parent().unwrap_or(&PathBuf::new()).join("themes")) {
+                                    debug!("config changed: {}", path.display());
+                                    let _ = app.emit("config-changed", ());
+                                } else if path.extension().is_some_and(|ext| ext == "md") {
+                                    debug!("file changed: {}", path.display());
+                                    let _ = app.emit(
+                                        "file-changed",
+                                        FileChangedPayload {
+                                            path: path.to_string_lossy().to_string(),
+                                        },
+                                    );
+                                }
                             }
                         }
+                        _ => {}
                     }
-                    _ => {}
+                }
+                Err(e) => {
+                    error!("watcher error: {}", e);
                 }
             }
         }

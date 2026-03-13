@@ -25,6 +25,7 @@ import { commands } from "@/lib/tauri";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
+import { log } from "@/lib/logger";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export const Route = createFileRoute("/")(
@@ -123,7 +124,7 @@ function ReaderView() {
           });
         }
       }
-    }).catch(console.error);
+    }).catch(log.error);
   }, []);
 
   const scrollReader = useCallback(
@@ -208,7 +209,7 @@ function ReaderView() {
       closeFile();
       refreshFiles();
     } catch (e) {
-      console.error("Failed to trash file:", e);
+      log.error("Failed to trash file:", e);
     }
   }, [currentPath, closeFile, refreshFiles]);
 
@@ -219,7 +220,7 @@ function ReaderView() {
       if (currentPath === path) closeFile();
       refreshFiles();
     } catch (e) {
-      console.error("Failed to trash file:", e);
+      log.error("Failed to trash file:", e);
     }
   }, [currentPath, closeFile, refreshFiles]);
 
@@ -253,7 +254,7 @@ function ReaderView() {
       const newContent = await commands.toggleTodo(currentPath, sourceLine);
       setContent(newContent);
     } catch (e) {
-      console.error("Failed to toggle todo:", e);
+      log.error("Failed to toggle todo:", e);
     }
   }, [currentPath, content, readerRef, setContent]);
 
@@ -262,7 +263,7 @@ function ReaderView() {
       const resolved = await commands.resolveWikiLink(target);
       if (resolved) openFile(resolved);
     } catch (e) {
-      console.error("Failed to resolve wiki link:", e);
+      log.error("Failed to resolve wiki link:", e);
     }
   }, [openFile]);
 
@@ -351,7 +352,7 @@ function ReaderView() {
       {
         id: "empty-trash",
         label: "Empty Trash",
-        action: () => commands.emptyTrash().then(refreshFiles).catch(console.error),
+        action: () => commands.emptyTrash().then(refreshFiles).catch(log.error),
       },
       {
         id: "filter-by-tag",
@@ -414,7 +415,7 @@ function ReaderView() {
           commands.createDailyNote().then((path) => {
             openFile(path);
             refreshFiles();
-          }).catch(console.error);
+          }).catch(log.error);
         },
       },
       {
@@ -423,7 +424,7 @@ function ReaderView() {
         action: () => {
           commands.updatePlugins().then((count) => {
             toast.info(`Updated ${count} plugin(s)`);
-          }).catch(console.error);
+          }).catch(log.error);
         },
       },
       {
@@ -432,7 +433,7 @@ function ReaderView() {
         action: () => {
           commands.cleanPlugins().then((removed) => {
             toast.info(`Removed ${removed.length} plugin(s)`);
-          }).catch(console.error);
+          }).catch(log.error);
         },
       },
     ],

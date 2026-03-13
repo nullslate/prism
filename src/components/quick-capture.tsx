@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { commands } from "@/lib/tauri";
+import { log } from "@/lib/logger";
 
 interface QuickCaptureProps {
   onClose: () => void;
@@ -25,7 +26,7 @@ export function QuickCapture({ onClose, onCapture }: QuickCaptureProps) {
       onCapture?.();
       onClose();
     } catch (e) {
-      console.error("Failed to capture:", e);
+      log.error("Failed to capture:", e);
     }
   }, [text, onClose, onCapture]);
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { commands, onFileChanged } from "@/lib/tauri";
+import { log } from "@/lib/logger";
 import type { FileNode } from "@/lib/types";
 
 export function useVault() {
@@ -15,7 +16,7 @@ export function useVault() {
       const tree = await commands.listFiles();
       setFiles(tree);
     } catch (e) {
-      console.error("Failed to load files:", e);
+      log.error("Failed to load files:", e);
     }
   }, []);
 
@@ -27,7 +28,7 @@ export function useVault() {
       const md = await commands.readFile(path);
       setContent(md);
     } catch (e) {
-      console.error("Failed to read file:", e);
+      log.error("Failed to read file:", e);
       setContent("");
     } finally {
       setLoading(false);
@@ -50,7 +51,7 @@ export function useVault() {
     const unlisten = onFileChanged((changedPath) => {
       refreshFiles();
       if (currentPath && changedPath.endsWith(currentPath)) {
-        commands.readFile(currentPath).then(setContent).catch(console.error);
+        commands.readFile(currentPath).then(setContent).catch(log.error);
       }
     });
     return () => { unlisten.then((fn) => fn()); };

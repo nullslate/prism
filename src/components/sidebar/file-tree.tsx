@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FileNode } from "@/lib/types";
 import { commands } from "@/lib/tauri";
+import { log } from "@/lib/logger";
 
 interface FileTreeProps {
   nodes: FileNode[];
@@ -136,7 +137,7 @@ export const FileTree = memo(function FileTree({
       onRename?.(renaming, newPath);
       onRefresh?.();
     } catch (e) {
-      console.error("Rename failed:", e);
+      log.error("Rename failed:", e);
     }
     setRenaming(null);
   }, [renaming, renameValue, onRename, onRefresh]);

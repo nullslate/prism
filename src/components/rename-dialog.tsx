@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { commands } from "@/lib/tauri";
+import { log } from "@/lib/logger";
 
 interface RenameDialogProps {
   currentPath: string;
@@ -23,7 +24,7 @@ export function RenameDialog({ currentPath, onRename, onClose }: RenameDialogPro
     commands
       .renameFile(currentPath, newPath)
       .then((actualPath) => onRename(actualPath))
-      .catch((err) => console.error("Failed to rename file:", err));
+      .catch((err) => log.error("Failed to rename file:", err));
   }, [name, currentPath, onRename]);
 
   const handleKeyDown = useCallback(

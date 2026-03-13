@@ -8,6 +8,7 @@ import { keymap, Decoration, type DecorationSet } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
 import { vim, Vim, getCM } from "@replit/codemirror-vim";
 import { commands } from "@/lib/tauri";
+import { log } from "@/lib/logger";
 import { autocompletion, type CompletionContext, type CompletionResult } from "@codemirror/autocomplete";
 import type { FileNode } from "@/lib/types";
 
@@ -64,7 +65,7 @@ function ensureVimConfig() {
     const sel = view.state.selection.main;
     if (sel.from === sel.to) return;
     const text = view.state.sliceDoc(sel.from, sel.to);
-    commands.copyToClipboard(text).catch(console.error);
+    commands.copyToClipboard(text).catch(log.error);
     flashView(view, sel.from, sel.to);
     Vim.exitVisualMode(cm);
   });
@@ -75,7 +76,7 @@ function ensureVimConfig() {
     const view = cm.cm6 as EditorView;
     const head = view.state.selection.main.head;
     const line = view.state.doc.lineAt(head);
-    commands.copyToClipboard(line.text).catch(console.error);
+    commands.copyToClipboard(line.text).catch(log.error);
     flashView(view, line.from, line.to);
   });
   Vim.mapCommand("<Space>yy", "action", "clipboard-yank-line", {}, { context: "normal" });
@@ -196,7 +197,7 @@ function imagePasteHandler() {
                   selection: { anchor: cursor + mdImage.length },
                 });
               })
-              .catch((err) => console.error("Failed to save image:", err));
+              .catch((err) => log.error("Failed to save image:", err));
           };
           reader.readAsDataURL(file);
           return true;
@@ -434,7 +435,7 @@ export function SourceEditor({ content, filePath, scrollLine, onSave, onExit }: 
       const text = view.state.doc.toString();
       commands.writeFile(filePath, text)
         .then(() => onSaveRef.current(text))
-        .catch((err) => console.error("Save failed:", err));
+        .catch((err) => log.error("Save failed:", err));
     });
 
     Vim.defineEx("quit", "q", () => {
@@ -449,7 +450,7 @@ export function SourceEditor({ content, filePath, scrollLine, onSave, onExit }: 
           onSaveRef.current(text);
           onExitRef.current();
         })
-        .catch((err) => console.error("Save failed:", err));
+        .catch((err) => log.error("Save failed:", err));
     });
 
     const state = EditorState.create({

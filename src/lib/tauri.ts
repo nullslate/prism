@@ -41,6 +41,8 @@ export const commands = {
   updatePlugins: () => invoke<number>("update_plugins"),
   cleanPlugins: () => invoke<string[]>("clean_plugins"),
   pluginEmit: (event: string, data?: unknown) => invoke<void>("plugin_emit", { event, data }),
+  getDebugFlag: () => invoke<boolean>("get_debug_flag"),
+  logMessage: (level: string, message: string) => invoke<void>("log_message", { level, message }),
 };
 
 export function onFileChanged(callback: (path: string) => void): Promise<UnlistenFn> {

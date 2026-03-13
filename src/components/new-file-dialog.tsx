@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { commands } from "@/lib/tauri";
+import { log } from "@/lib/logger";
 
 interface NewFileDialogProps {
   onCreate: (path: string) => void;
@@ -21,7 +22,7 @@ export function NewFileDialog({ onCreate, onClose }: NewFileDialogProps) {
     commands
       .createFile(path)
       .then((actualPath) => onCreate(actualPath))
-      .catch((err) => console.error("Failed to create file:", err));
+      .catch((err) => log.error("Failed to create file:", err));
   }, [name, onCreate]);
 
   const handleKeyDown = useCallback(

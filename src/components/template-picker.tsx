@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { commands } from "@/lib/tauri";
+import { log } from "@/lib/logger";
 import type { TemplateMeta } from "@/lib/types";
 
 interface TemplatePickerProps {
@@ -17,7 +18,7 @@ export function TemplatePickerDialog({ onCreate, onClose }: TemplatePickerProps)
   const listRef = useRef<HTMLUListElement>(null);
 
   useEffect(() => {
-    commands.listTemplates().then(setTemplates).catch(console.error);
+    commands.listTemplates().then(setTemplates).catch(log.error);
   }, []);
 
   useEffect(() => {
@@ -47,7 +48,7 @@ export function TemplatePickerDialog({ onCreate, onClose }: TemplatePickerProps)
     commands
       .createFromTemplate(selectedTemplate.name, path)
       .then((actualPath) => onCreate(actualPath))
-      .catch((err) => console.error("Failed to create from template:", err));
+      .catch((err) => log.error("Failed to create from template:", err));
   }, [selectedTemplate, fileName, onCreate]);
 
   const handleKeyDown = useCallback(
