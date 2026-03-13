@@ -33,11 +33,11 @@ export const StatusBar = memo(function StatusBar({ filePath, content }: StatusBa
     >
       <div className="flex items-center gap-2">
         <span
-          className="px-1.5 text-xs font-bold uppercase rounded"
+          className="px-2 py-0.5 text-xs font-bold uppercase rounded"
           style={{
-            color: flash ? "#1e1e2e" : state.editorOpen ? "var(--prism-accent)" : "var(--prism-muted)",
-            background: flash ? "#a6e3a1" : "transparent",
-            transition: "background 150ms, color 150ms",
+            color: flash ? "var(--prism-bg)" : state.editorOpen ? "var(--prism-bg)" : "var(--prism-muted)",
+            background: flash ? "#a6e3a1" : state.editorOpen ? "var(--prism-accent)" : "var(--prism-selection)",
+            transition: "all 120ms ease-out",
           }}
         >
           {mode}
@@ -50,7 +50,9 @@ export const StatusBar = memo(function StatusBar({ filePath, content }: StatusBa
         ))}
         {filePath && <span>{wordCount}w</span>}
         {state.keySequence && (
-          <span style={{ color: "var(--prism-fg)" }}>{state.keySequence}</span>
+          <span style={{ color: "var(--prism-accent)", fontWeight: 600 }}>
+            {state.keySequence}
+          </span>
         )}
       </div>
     </footer>

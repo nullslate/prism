@@ -1,13 +1,41 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReaderAction } from "@/lib/reader-state";
 
 export type ShortcutMaps = Record<string, Record<string, () => void>>;
+
+export interface KeyContinuation {
+  key: string;
+  label: string;
+}
+
+function getContinuations(
+  prefix: string,
+  maps: Record<string, () => void>,
+  actionLabels: Record<string, string>,
+): KeyContinuation[] {
+  const results: KeyContinuation[] = [];
+  for (const [binding] of Object.entries(maps)) {
+    if (binding.startsWith(prefix + " ") && binding !== prefix) {
+      const rest = binding.slice(prefix.length + 1);
+      const nextKey = rest.split(" ")[0];
+      const label = actionLabels[binding] ?? binding;
+      if (!results.some((r) => r.key === nextKey)) {
+        results.push({ key: nextKey, label });
+      }
+    }
+  }
+  return results;
+}
 
 export function useShortcuts(
   maps: ShortcutMaps,
   currentMode: string,
   dispatch: React.Dispatch<ReaderAction>,
+  actionLabels?: Record<string, string>,
 ) {
+  const [continuations, setContinuations] = useState<KeyContinuation[]>([]);
+  const actionLabelsRef = useRef(actionLabels ?? {});
+  actionLabelsRef.current = actionLabels ?? {};
   const mapsRef = useRef(maps);
   mapsRef.current = maps;
   const modeRef = useRef(currentMode);
@@ -44,6 +72,7 @@ export function useShortcuts(
         }
         sequenceRef.current = "";
         setKeySequence("");
+        setContinuations([]);
         return;
       }
 
@@ -68,6 +97,7 @@ export function useShortcuts(
           handler();
           sequenceRef.current = "";
           setKeySequence("");
+          setContinuations([]);
           return;
         }
       }
@@ -90,6 +120,7 @@ export function useShortcuts(
           seqHandler();
           sequenceRef.current = "";
           setKeySequence("");
+          setContinuations([]);
           return;
         }
 
@@ -100,17 +131,26 @@ export function useShortcuts(
           singleHandler();
           sequenceRef.current = "";
           setKeySequence("");
+          setContinuations([]);
           return;
         }
+
+        // Compute continuations from both mode and global maps
+        const allBindings = { ...maps.global, ...maps[mode] };
+        const conts = getContinuations(seq, allBindings, actionLabelsRef.current);
+        setContinuations(conts);
 
         timeoutRef.current = setTimeout(() => {
           sequenceRef.current = "";
           setKeySequence("");
-        }, 500);
+          setContinuations([]);
+        }, conts.length > 0 ? 2000 : 500);
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isEditorFocused, setKeySequence]);
+
+  return { continuations };
 }

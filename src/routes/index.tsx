@@ -20,6 +20,7 @@ import { LinkGraph } from "@/components/link-graph";
 import { ThemePicker } from "@/components/theme-picker";
 import { AnimatedOverlay } from "@/components/animated-overlay";
 import { SidebarPanel } from "@/components/sidebar-panel";
+import { WhichKey } from "@/components/which-key";
 import { PluginErrorBoundary } from "@/components/plugin-panel";
 import { loadPluginBundle, type PluginUI } from "@/lib/plugin-loader";
 import { ContentSkeleton } from "@/components/content-skeleton";
@@ -556,8 +557,51 @@ function ReaderView() {
     setVault,
   ]);
 
+  const actionLabels = useMemo(() => {
+    const labels: Record<string, string> = {};
+    const sc = shortcuts ?? { global: {}, render: {} };
+    const labelMap: Record<string, string> = {
+      "find-file": "Find File",
+      "toggle-sidebar": "Toggle Sidebar",
+      "command-palette": "Command Palette",
+      "new-file": "New File",
+      "filter-tags": "Filter Tags",
+      "quick-capture": "Quick Capture",
+      "new-from-template": "New from Template",
+      "link-graph": "Link Graph",
+      "cycle-theme": "Switch Theme",
+      "vault-search": "Search Vault",
+      "set-vault": "Set Vault",
+      "daily-note": "Daily Note",
+      "close-overlay": "Close Overlay",
+      "page-down": "Page Down",
+      "page-up": "Page Up",
+      "quit": "Quit",
+      "scroll-down": "Scroll Down",
+      "scroll-up": "Scroll Up",
+      "scroll-left": "Scroll Left",
+      "scroll-right": "Scroll Right",
+      "goto-top": "Go to Top",
+      "goto-bottom": "Go to Bottom",
+      "open-editor": "Open Editor",
+      "toggle-todo": "Toggle Todo",
+      "search-in-file": "Search in File",
+      "trash-file": "Trash File",
+    };
+    for (let i = 1; i <= 9; i++) {
+      labelMap[`favorite-${i}`] = `Favorite ${i}`;
+    }
+    for (const [actionId, binding] of Object.entries(sc.global)) {
+      labels[binding] = labelMap[actionId] ?? actionId;
+    }
+    for (const [actionId, binding] of Object.entries(sc.render)) {
+      labels[binding] = labelMap[actionId] ?? actionId;
+    }
+    return labels;
+  }, [shortcuts]);
+
   const currentMode = state.editorOpen ? "editor" : state.sidebarVisible ? "sidebar" : "render";
-  useShortcuts(shortcutMaps, currentMode, dispatch);
+  const { continuations } = useShortcuts(shortcutMaps, currentMode, dispatch, actionLabels);
 
   return (
     <>
@@ -713,6 +757,7 @@ function ReaderView() {
           onClose={() => dispatch({ type: "CLOSE_OVERLAY" })}
         />
       </AnimatedOverlay>
+      <WhichKey continuations={continuations} keySequence={state.keySequence} />
       {pendingTrash && (
         <div
           className="fixed bottom-8 left-1/2 -translate-x-1/2 px-4 py-2 rounded text-sm z-50"
