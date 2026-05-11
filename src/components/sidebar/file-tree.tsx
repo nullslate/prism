@@ -3,6 +3,28 @@ import type { FileNode } from "@/lib/types";
 import { commands } from "@/lib/tauri";
 import { log } from "@/lib/logger";
 
+function extLabel(name: string): string {
+  const dot = name.lastIndexOf(".");
+  if (dot <= 0) return "";
+  return name.slice(dot + 1).toLowerCase().slice(0, 4);
+}
+
+// Per-kind accent color for the badge — gives the eye a fast signal.
+function kindColor(kind: string): string {
+  switch (kind) {
+    case "image":
+      return "var(--prism-syntax-string)"; // greenish
+    case "pdf":
+      return "var(--prism-syntax-keyword)"; // pinkish/red
+    case "canvas":
+      return "var(--prism-syntax-function)"; // bluish
+    case "text":
+      return "var(--prism-syntax-comment)"; // gray
+    default:
+      return "var(--prism-muted)";
+  }
+}
+
 interface FileTreeProps {
   nodes: FileNode[];
   currentPath: string | null;
@@ -46,6 +68,7 @@ export const FileTree = memo(function FileTree({
 }: FileTreeProps) {
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set());
   const [cursor, setCursor] = useState(0);
+  const [cursorRect, setCursorRect] = useState<{ top: number; height: number } | null>(null);
   const [pendingTrash, setPendingTrash] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -65,14 +88,14 @@ export const FileTree = memo(function FileTree({
     }
   }, [items.length, cursor]);
 
-  // Scroll active item into view
+  // Scroll active item into view AND measure its real position for the cursor highlight
   useEffect(() => {
     if (!containerRef.current) return;
-    const el = containerRef.current.querySelector(`[data-idx="${cursor}"]`);
-    if (el) {
-      el.scrollIntoView({ block: "nearest" });
-    }
-  }, [cursor]);
+    const el = containerRef.current.querySelector<HTMLElement>(`[data-idx="${cursor}"]`);
+    if (!el) return;
+    el.scrollIntoView({ block: "nearest" });
+    setCursorRect({ top: el.offsetTop, height: el.offsetHeight });
+  }, [cursor, items.length]);
 
   // Auto-focus the container on mount so it captures keyboard events
   useEffect(() => {
@@ -179,8 +202,10 @@ export const FileTree = memo(function FileTree({
           e.preventDefault();
           if (item.node.is_dir) {
             toggleDir(item.node.path);
-          } else {
+          } else if (item.node.kind === "markdown" || item.node.kind === "") {
             onSelect(item.node.path);
+          } else {
+            commands.openAttachment(item.node.path).catch(log.error);
           }
           break;
         case "l":
@@ -255,10 +280,12 @@ export const FileTree = memo(function FileTree({
       onKeyDown={handleKeyDown}
     >
       <div className="relative">
-        <div
-          className="file-tree-cursor"
-          style={{ top: `${cursor * 32}px` }}
-        />
+        {cursorRect && (
+          <div
+            className="file-tree-cursor"
+            style={{ top: `${cursorRect.top}px`, height: `${cursorRect.height}px` }}
+          />
+        )}
       <ul className="list-none m-0 p-0 relative" style={{ zIndex: 1 }}>
         {items.map((item, idx) => (
           <FileTreeRow
@@ -336,6 +363,7 @@ const FileTreeRow = memo(function FileTreeRow({
   const indent = depth * 16 + 12;
 
   const bg = "transparent";
+  const isAttachment = !node.is_dir && node.kind !== "markdown" && node.kind !== "";
 
   const color = isPendingTrash
     ? "var(--prism-syntax-variable)"
@@ -343,13 +371,15 @@ const FileTreeRow = memo(function FileTreeRow({
       ? "var(--prism-accent)"
       : node.is_dir
         ? "var(--prism-muted)"
-        : "var(--prism-fg)";
+        : isAttachment
+          ? "var(--prism-muted)"
+          : "var(--prism-fg)";
 
   if (isRenaming) {
     return (
       <li data-idx={idx}>
         <div
-          className="flex items-center py-1 px-3"
+          className="file-tree-row px-3"
           style={{ paddingLeft: `${indent}px`, background: bg }}
         >
           <input
@@ -390,13 +420,15 @@ const FileTreeRow = memo(function FileTreeRow({
           onSetCursor(idx);
           if (node.is_dir) {
             onToggle(node.path);
+          } else if (isAttachment) {
+            commands.openAttachment(node.path).catch(log.error);
           } else {
             onSelect(node.path);
           }
           // Keep focus on container
           containerRef.current?.focus();
         }}
-        className="flex items-center gap-1.5 py-1 px-3 text-sm cursor-pointer"
+        className="file-tree-row gap-1.5 px-3 text-sm cursor-pointer"
         style={{
           paddingLeft: `${indent}px`,
           fontFamily: "var(--font-mono)",
@@ -409,9 +441,49 @@ const FileTreeRow = memo(function FileTreeRow({
             {expanded ? "\u25BE" : "\u25B8"}
           </span>
         )}
-        {!node.is_dir && <span className="w-3 shrink-0" />}
+        {!node.is_dir && (
+          isAttachment ? (
+            <span
+              className="shrink-0 inline-flex items-center justify-center font-bold uppercase"
+              style={{
+                minWidth: "2.4em",
+                fontSize: "9px",
+                color: kindColor(node.kind),
+                background: "color-mix(in srgb, " + kindColor(node.kind) + " 14%, transparent)",
+                border: "1px solid color-mix(in srgb, " + kindColor(node.kind) + " 35%, transparent)",
+                borderRadius: "3px",
+                padding: "1px 4px",
+                lineHeight: 1,
+                letterSpacing: "0.05em",
+                fontFamily: "var(--font-mono)",
+              }}
+              aria-hidden
+            >
+              {extLabel(node.name)}
+            </span>
+          ) : (
+            <span
+              className="shrink-0 inline-flex items-center justify-center"
+              style={{
+                minWidth: "2.4em",
+                fontSize: "9px",
+                color: "var(--prism-muted)",
+                opacity: 0.55,
+                fontFamily: "var(--font-mono)",
+                letterSpacing: "0.05em",
+              }}
+              aria-hidden
+            >
+              md
+            </span>
+          )
+        )}
         <span className="truncate">
-          {node.is_dir ? `${node.name}/` : node.name.replace(/\.md$/, "")}
+          {node.is_dir
+            ? `${node.name}/`
+            : node.kind === "markdown" || node.kind === ""
+              ? node.name.replace(/\.md$/, "")
+              : node.name}
         </span>
       </div>
     </li>

@@ -27,6 +27,7 @@ export const commands = {
   toggleFavorite: (path: string, label: string) => invoke<Favorite[]>("toggle_favorite", { path, label }),
   openInEditor: (path: string, line: number) => invoke<string>("open_in_editor", { path, line }),
   openConfigInEditor: () => invoke<void>("open_config_in_editor"),
+  openAttachment: (path: string) => invoke<void>("open_attachment", { path }),
   getTheme: (name: string) => invoke<Theme>("get_theme", { name }),
   listThemes: () => invoke<string[]>("list_themes"),
   copyToClipboard: (text: string) => invoke<void>("copy_to_clipboard", { text }),

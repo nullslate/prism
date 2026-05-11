@@ -6,7 +6,7 @@ import { ReaderProvider, useReader } from "@/components/reader-provider";
 import { StatusBar } from "@/components/status-bar";
 import { FileTree } from "@/components/sidebar/file-tree";
 import { MarkdownViewer } from "@/components/reader/markdown";
-import { SourceEditor } from "@/components/reader/source-editor";
+import { SourceEditor, type EditorIntent } from "@/components/reader/source-editor";
 import { FileFinder } from "@/components/search/file-finder";
 import { InFileSearch } from "@/components/search/in-file";
 import { VaultSearch } from "@/components/search/vault-search";
@@ -25,6 +25,8 @@ import { PluginErrorBoundary } from "@/components/plugin-panel";
 import { loadPluginBundle, type PluginUI } from "@/lib/plugin-loader";
 import { ContentSkeleton } from "@/components/content-skeleton";
 import { useToast } from "@/components/toast";
+import { useJumpHistory } from "@/hooks/use-jump-history";
+import { AppCheatsheet } from "@/components/app-cheatsheet";
 import { commands } from "@/lib/tauri";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
@@ -48,6 +50,7 @@ function ReaderView() {
   const { state, dispatch, readerRef } = useReader();
   const toast = useToast();
   const scrollLineRef = useRef(1);
+  const jumpHistory = useJumpHistory();
   const [pluginUIs, setPluginUIs] = useState<Record<string, PluginUI>>({});
   const [pendingTrash, setPendingTrash] = useState<string | null>(null);
   const [justCaptured, setJustCaptured] = useState(false);
@@ -69,6 +72,21 @@ function ReaderView() {
       localStorage.setItem(`prism:scroll:${currentPath}`, String(reader.scrollTop));
     }, 300);
   }, [currentPath, readerRef, state.editorOpen]);
+
+  useEffect(() => {
+    if (!currentPath) return;
+    jumpHistory.push(currentPath);
+  }, [currentPath, jumpHistory]);
+
+  const jumpBack = useCallback(() => {
+    const path = jumpHistory.back();
+    if (path) openFile(path);
+  }, [jumpHistory, openFile]);
+
+  const jumpForward = useCallback(() => {
+    const path = jumpHistory.forward();
+    if (path) openFile(path);
+  }, [jumpHistory, openFile]);
 
   useEffect(() => {
     if (!currentPath || !content || state.editorOpen) return;
@@ -187,6 +205,40 @@ function ReaderView() {
     setContent(text);
     dispatch({ type: "SAVE_FLASH" });
   }, [setContent, dispatch]);
+
+  const handleEditorIntent = useCallback(
+    (intent: EditorIntent) => {
+      switch (intent.type) {
+        case "find-file":
+          dispatch({ type: "SET_OVERLAY", overlay: "file-finder" });
+          break;
+        case "grep":
+          dispatch({ type: "SET_OVERLAY", overlay: "vault-search" });
+          break;
+        case "buffers":
+          dispatch({ type: "SET_OVERLAY", overlay: "file-finder" });
+          break;
+        case "palette":
+          dispatch({ type: "SET_OVERLAY", overlay: "palette" });
+          break;
+        case "navigate-wiki":
+          commands.resolveWikiLink(intent.target).then((resolved) => {
+            if (resolved) {
+              openFile(resolved);
+              // Stay in editor mode for the new file
+            }
+          }).catch(log.error);
+          break;
+        case "jump-back":
+          jumpBack();
+          break;
+        case "jump-forward":
+          jumpForward();
+          break;
+      }
+    },
+    [dispatch, openFile, jumpBack, jumpForward],
+  );
 
   const createFile = useCallback(
     (path: string) => {
@@ -418,6 +470,24 @@ function ReaderView() {
         },
       },
       {
+        id: "show-help",
+        label: "Show Keybindings (?)",
+        shortcut: shortcutLabel("show-help", "render"),
+        action: () => dispatch({ type: "SET_OVERLAY", overlay: "cheatsheet" }),
+      },
+      {
+        id: "jump-back",
+        label: "Jump Back",
+        shortcut: shortcutLabel("jump-back", "render"),
+        action: () => jumpBack(),
+      },
+      {
+        id: "jump-forward",
+        label: "Jump Forward",
+        shortcut: shortcutLabel("jump-forward", "render"),
+        action: () => jumpForward(),
+      },
+      {
         id: "daily-note",
         label: "Daily Note",
         shortcut: shortcutLabel("daily-note"),
@@ -447,7 +517,7 @@ function ReaderView() {
         },
       },
     ],
-    [currentPath, currentFileName, toggleFavorite, refreshFiles, dispatch, trashCurrentFile, setVault, openFile, shortcutLabel, state.sidebarVisible, toast],
+    [currentPath, currentFileName, toggleFavorite, refreshFiles, dispatch, trashCurrentFile, setVault, openFile, shortcutLabel, state.sidebarVisible, toast, jumpBack, jumpForward],
   );
 
   const allPaletteCommands = useMemo(() => {
@@ -503,6 +573,9 @@ function ReaderView() {
       "open-editor": () => openEditor(),
       "toggle-todo": () => toggleNearestTodo(),
       "search-in-file": () => dispatch({ type: "SET_OVERLAY", overlay: "search" }),
+      "jump-back": jumpBack,
+      "jump-forward": jumpForward,
+      "show-help": () => dispatch({ type: "SET_OVERLAY", overlay: "cheatsheet" }),
       "trash-file": () => {
         if (!currentPath) return;
         if (pendingTrash === currentPath) {
@@ -555,6 +628,8 @@ function ReaderView() {
     trashCurrentFile,
     toggleNearestTodo,
     setVault,
+    jumpBack,
+    jumpForward,
   ]);
 
   const actionLabels = useMemo(() => {
@@ -587,6 +662,9 @@ function ReaderView() {
       "toggle-todo": "Toggle Todo",
       "search-in-file": "Search in File",
       "trash-file": "Trash File",
+      "jump-back": "Jump Back",
+      "jump-forward": "Jump Forward",
+      "show-help": "Show Help",
     };
     for (let i = 1; i <= 9; i++) {
       labelMap[`favorite-${i}`] = `Favorite ${i}`;
@@ -656,11 +734,14 @@ function ReaderView() {
 
         {state.editorOpen && currentPath && content != null ? (
           <SourceEditor
+            key={currentPath}
             content={content}
             filePath={currentPath}
             scrollLine={scrollLineRef.current}
             onSave={handleEditorSave}
             onExit={closeEditor}
+            onModeChange={(mode) => dispatch({ type: "SET_VIM_MODE", mode })}
+            onIntent={handleEditorIntent}
           />
         ) : (
           <main
@@ -757,6 +838,11 @@ function ReaderView() {
           onClose={() => dispatch({ type: "CLOSE_OVERLAY" })}
         />
       </AnimatedOverlay>
+      <AppCheatsheet
+        visible={state.overlay === "cheatsheet"}
+        shortcuts={shortcuts}
+        onClose={() => dispatch({ type: "CLOSE_OVERLAY" })}
+      />
       <WhichKey continuations={continuations} keySequence={state.keySequence} />
       {pendingTrash && (
         <div

@@ -266,6 +266,7 @@ pub fn run() {
             commands::search::vault_search,
             commands::editor::open_in_editor,
             commands::editor::open_config_in_editor,
+            commands::editor::open_attachment,
             commands::favorites::toggle_favorite,
             commands::theme::get_theme,
             commands::theme::list_themes,

@@ -121,6 +121,9 @@ impl ShortcutConfig {
             ("favorite-7".into(), "7".into()),
             ("favorite-8".into(), "8".into()),
             ("favorite-9".into(), "9".into()),
+            ("jump-back".into(), "ctrl+o".into()),
+            ("jump-forward".into(), "ctrl+i".into()),
+            ("show-help".into(), "?".into()),
         ]);
         Self { global, render }
     }

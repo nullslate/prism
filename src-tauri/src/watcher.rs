@@ -47,14 +47,17 @@ pub fn start_watcher(
                                 if *path == config_file || *path == vault_config_file || path.starts_with(config_file.parent().unwrap_or(&PathBuf::new()).join("themes")) {
                                     debug!("config changed: {}", path.display());
                                     let _ = app.emit("config-changed", ());
-                                } else if path.extension().is_some_and(|ext| ext == "md") {
-                                    debug!("file changed: {}", path.display());
-                                    let _ = app.emit(
-                                        "file-changed",
-                                        FileChangedPayload {
-                                            path: path.to_string_lossy().to_string(),
-                                        },
-                                    );
+                                } else {
+                                    let basename = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                                    if !basename.starts_with('.') {
+                                        debug!("file changed: {}", path.display());
+                                        let _ = app.emit(
+                                            "file-changed",
+                                            FileChangedPayload {
+                                                path: path.to_string_lossy().to_string(),
+                                            },
+                                        );
+                                    }
                                 }
                             }
                         }

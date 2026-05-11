@@ -1,7 +1,8 @@
 use crate::config::PrismConfig;
 use std::process::Command;
 use std::sync::Mutex;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, State};
+use tauri_plugin_opener::OpenerExt;
 
 #[tauri::command]
 pub async fn open_in_editor(app: AppHandle, path: String, line: u32) -> Result<String, String> {
@@ -77,4 +78,19 @@ pub async fn open_config_in_editor(app: AppHandle) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+#[tauri::command]
+pub fn open_attachment(
+    app: AppHandle,
+    path: String,
+    config: State<'_, Mutex<PrismConfig>>,
+) -> Result<(), String> {
+    let cfg = config.lock().map_err(|e| e.to_string())?;
+    let full_path = cfg.vault_path().join(&path);
+    let full = full_path.to_string_lossy().to_string();
+    drop(cfg);
+    app.opener()
+        .open_path(full, None::<&str>)
+        .map_err(|e| e.to_string())
 }

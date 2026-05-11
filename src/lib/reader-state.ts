@@ -1,4 +1,6 @@
-export type Overlay = "none" | "file-finder" | "search" | "palette" | "new-file" | "rename" | "tags" | "capture" | "graph" | "vault-search" | "template" | "theme";
+export type Overlay = "none" | "file-finder" | "search" | "palette" | "new-file" | "rename" | "tags" | "capture" | "graph" | "vault-search" | "template" | "theme" | "cheatsheet";
+
+export type VimMode = "NORMAL" | "INSERT" | "VISUAL" | "V-LINE" | "V-BLOCK" | "REPLACE" | "EX";
 
 export interface ReaderState {
   sidebarVisible: boolean;
@@ -6,6 +8,7 @@ export interface ReaderState {
   editorOpen: boolean;
   keySequence: string;
   saveFlash: boolean;
+  vimMode: VimMode;
 }
 
 export type ReaderAction =
@@ -15,7 +18,8 @@ export type ReaderAction =
   | { type: "OPEN_EDITOR" }
   | { type: "CLOSE_EDITOR" }
   | { type: "SET_KEY_SEQUENCE"; keySequence: string }
-  | { type: "SAVE_FLASH" };
+  | { type: "SAVE_FLASH" }
+  | { type: "SET_VIM_MODE"; mode: VimMode };
 
 export const initialReaderState: ReaderState = {
   sidebarVisible: false,
@@ -23,6 +27,7 @@ export const initialReaderState: ReaderState = {
   editorOpen: false,
   keySequence: "",
   saveFlash: false,
+  vimMode: "NORMAL",
 };
 
 export function readerReducer(state: ReaderState, action: ReaderAction): ReaderState {
@@ -34,13 +39,15 @@ export function readerReducer(state: ReaderState, action: ReaderAction): ReaderS
     case "CLOSE_OVERLAY":
       return { ...state, overlay: "none" };
     case "OPEN_EDITOR":
-      return { ...state, editorOpen: true, overlay: "none" };
+      return { ...state, editorOpen: true, overlay: "none", vimMode: "NORMAL" };
     case "CLOSE_EDITOR":
       return { ...state, editorOpen: false };
     case "SET_KEY_SEQUENCE":
       return { ...state, keySequence: action.keySequence };
     case "SAVE_FLASH":
       return { ...state, saveFlash: !state.saveFlash };
+    case "SET_VIM_MODE":
+      return { ...state, vimMode: action.mode };
     default:
       return state;
   }

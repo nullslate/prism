@@ -12,6 +12,19 @@ pub struct FileNode {
     pub path: String,
     pub is_dir: bool,
     pub children: Vec<FileNode>,
+    #[serde(default)]
+    pub kind: String, // "markdown" | "image" | "pdf" | "canvas" | "text" | "other"
+}
+
+fn classify_extension(ext: &str) -> Option<&'static str> {
+    match ext.to_ascii_lowercase().as_str() {
+        "md" | "markdown" => Some("markdown"),
+        "png" | "jpg" | "jpeg" | "gif" | "webp" | "svg" | "avif" | "bmp" | "ico" => Some("image"),
+        "pdf" => Some("pdf"),
+        "canvas" => Some("canvas"),
+        "txt" | "org" | "rst" => Some("text"),
+        _ => None,
+    }
 }
 
 fn build_tree(dir: &Path, vault_root: &Path) -> Vec<FileNode> {
@@ -41,22 +54,27 @@ fn build_tree(dir: &Path, vault_root: &Path) -> Vec<FileNode> {
 
         if path.is_dir() {
             let children = build_tree(&path, vault_root);
-            if !children.is_empty() {
-                let rel = path.strip_prefix(vault_root).unwrap_or(&path);
-                entries.push(FileNode {
-                    name,
-                    path: rel.to_string_lossy().to_string(),
-                    is_dir: true,
-                    children,
-                });
-            }
-        } else if path.extension().is_some_and(|ext| ext == "md") {
+            let rel = path.strip_prefix(vault_root).unwrap_or(&path);
+            entries.push(FileNode {
+                name,
+                path: rel.to_string_lossy().to_string(),
+                is_dir: true,
+                children,
+                kind: String::new(),
+            });
+        } else {
+            let kind = path
+                .extension()
+                .and_then(|e| e.to_str())
+                .and_then(classify_extension)
+                .unwrap_or("other");
             let rel = path.strip_prefix(vault_root).unwrap_or(&path);
             entries.push(FileNode {
                 name,
                 path: rel.to_string_lossy().to_string(),
                 is_dir: false,
                 children: vec![],
+                kind: kind.to_string(),
             });
         }
     }

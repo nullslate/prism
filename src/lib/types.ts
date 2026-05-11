@@ -1,8 +1,11 @@
+export type FileKind = "" | "markdown" | "image" | "pdf" | "canvas" | "text" | "other";
+
 export interface FileNode {
   name: string;
   path: string;
   is_dir: boolean;
   children: FileNode[];
+  kind: FileKind;
 }
 
 export interface PrismConfig {

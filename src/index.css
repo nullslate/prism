@@ -285,10 +285,15 @@ main em { font-style: italic; }
   position: absolute;
   left: 4px;
   right: 4px;
-  height: 32px;
   background: var(--prism-selection);
   border-radius: 4px;
-  transition: top 120ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: top 120ms cubic-bezier(0.16, 1, 0.3, 1), height 120ms ease-out;
   pointer-events: none;
   z-index: 0;
+}
+
+.file-tree-row {
+  height: 28px;
+  display: flex;
+  align-items: center;
 }

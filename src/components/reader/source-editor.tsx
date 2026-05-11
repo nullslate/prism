@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { EditorView, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection } from "@codemirror/view";
 import { EditorState, StateEffect, StateField } from "@codemirror/state";
 import { markdown } from "@codemirror/lang-markdown";
@@ -11,6 +11,20 @@ import { commands } from "@/lib/tauri";
 import { log } from "@/lib/logger";
 import { autocompletion, type CompletionContext, type CompletionResult } from "@codemirror/autocomplete";
 import type { FileNode } from "@/lib/types";
+import { EditorCheatsheet } from "./editor-cheatsheet";
+import { EditorLeaderHint } from "./editor-leader-hint";
+import { markdownConceal, concealTheme } from "./markdown-conceal";
+
+export type VimMode = "NORMAL" | "INSERT" | "VISUAL" | "V-LINE" | "V-BLOCK" | "REPLACE" | "EX";
+
+export type EditorIntent =
+  | { type: "find-file" }
+  | { type: "grep" }
+  | { type: "buffers" }
+  | { type: "palette" }
+  | { type: "navigate-wiki"; target: string }
+  | { type: "jump-back" }
+  | { type: "jump-forward" };
 
 interface SourceEditorProps {
   content: string;
@@ -18,6 +32,8 @@ interface SourceEditorProps {
   scrollLine: number;
   onSave: (content: string) => void;
   onExit: () => void;
+  onModeChange?: (mode: VimMode) => void;
+  onIntent?: (intent: EditorIntent) => void;
 }
 
 // --- Yank flash decoration ---
@@ -47,19 +63,41 @@ function flashView(view: EditorView, from: number, to: number) {
   }, 150);
 }
 
+// --- Wiki link extraction at cursor ---
+
+function wikiLinkAt(view: EditorView, pos: number): string | null {
+  const line = view.state.doc.lineAt(pos);
+  const text = line.text;
+  const col = pos - line.from;
+  // Find [[ before col and ]] at or after col
+  const open = text.lastIndexOf("[[", col);
+  if (open === -1) return null;
+  const close = text.indexOf("]]", open);
+  if (close === -1 || close < col) return null;
+  const inner = text.slice(open + 2, close);
+  // Strip alias / anchor
+  const target = inner.split("|")[0].split("#")[0].trim();
+  return target || null;
+}
+
 // --- Vim configuration (runs once, globally) ---
 
 let _vimConfigured = false;
+let _intentHandler: ((i: EditorIntent) => void) | null = null;
+let _exitHandler: (() => void) | null = null;
+let _saveHandler: ((exitAfter: boolean) => void) | null = null;
+let _toggleCheatsheet: (() => void) | null = null;
 
 function ensureVimConfig() {
   if (_vimConfigured) return;
   _vimConfigured = true;
 
-  // Remove default <Space> → l mapping so it can be used as leader
-  // Default mapping has context: undefined, so pass undefined to match
+  // Free <Space> so we can use it as leader, and free `?` so we can repurpose it for help.
   (Vim.unmap as (lhs: string, ctx?: string) => any)("<Space>");
+  try { (Vim.unmap as (lhs: string, ctx?: string) => any)("?"); } catch {}
+  try { (Vim.unmap as (lhs: string, ctx?: string) => any)("?", "normal"); } catch {}
 
-  // <Space>y in visual — yank selection to system clipboard + flash
+  // --- Clipboard yank ---
   Vim.defineAction("clipboard-yank", (cm: any) => {
     const view = cm.cm6 as EditorView;
     const sel = view.state.selection.main;
@@ -71,7 +109,6 @@ function ensureVimConfig() {
   });
   Vim.mapCommand("<Space>y", "action", "clipboard-yank", {}, { context: "visual" });
 
-  // <Space>yy in normal — yank current line to system clipboard + flash
   Vim.defineAction("clipboard-yank-line", (cm: any) => {
     const view = cm.cm6 as EditorView;
     const head = view.state.selection.main.head;
@@ -81,7 +118,7 @@ function ensureVimConfig() {
   });
   Vim.mapCommand("<Space>yy", "action", "clipboard-yank-line", {}, { context: "normal" });
 
-  // <Space>tt in normal — toggle checkbox on current line
+  // --- Todos ---
   Vim.defineAction("todo-toggle", (cm: any) => {
     const view = cm.cm6 as EditorView;
     const head = view.state.selection.main.head;
@@ -92,7 +129,6 @@ function ensureVimConfig() {
     } else if (text.includes("- [x] ")) {
       view.dispatch({ changes: { from: line.from, to: line.to, insert: text.replace("- [x] ", "- [ ] ") } });
     } else {
-      // Convert plain list item or line to todo
       const match = text.match(/^(\s*)(- )?(.*)$/);
       if (match) {
         const indent = match[1];
@@ -103,7 +139,6 @@ function ensureVimConfig() {
   });
   Vim.mapCommand("<Space>tt", "action", "todo-toggle", {}, { context: "normal" });
 
-  // <Space>tn in normal — insert new todo below and enter insert mode
   Vim.defineAction("todo-new", (cm: any) => {
     const view = cm.cm6 as EditorView;
     const head = view.state.selection.main.head;
@@ -114,18 +149,15 @@ function ensureVimConfig() {
       changes: { from: line.to, insert: newTodo },
       selection: { anchor: line.to + newTodo.length },
     });
-    // Enter insert mode
     Vim.handleKey(cm, "i", "mapping");
   });
   Vim.mapCommand("<Space>tn", "action", "todo-new", {}, { context: "normal" });
 
-  // <Space>ta in normal — wrap current line into a todo
   Vim.defineAction("todo-wrap", (cm: any) => {
     const view = cm.cm6 as EditorView;
     const head = view.state.selection.main.head;
     const line = view.state.doc.lineAt(head);
     const text = line.text;
-    // Skip if already a todo
     if (text.match(/^\s*- \[[ x]\] /)) return;
     const match = text.match(/^(\s*)(- |\* )?(.*)$/);
     if (match) {
@@ -135,6 +167,73 @@ function ensureVimConfig() {
     }
   });
   Vim.mapCommand("<Space>ta", "action", "todo-wrap", {}, { context: "normal" });
+
+  // --- File / quit intents (routed to React) ---
+  Vim.defineAction("prism-find-file", () => _intentHandler?.({ type: "find-file" }));
+  Vim.defineAction("prism-grep", () => _intentHandler?.({ type: "grep" }));
+  Vim.defineAction("prism-buffers", () => _intentHandler?.({ type: "buffers" }));
+  Vim.defineAction("prism-palette", () => _intentHandler?.({ type: "palette" }));
+  Vim.defineAction("prism-save", () => _saveHandler?.(true));
+  Vim.defineAction("prism-save-only", () => _saveHandler?.(false));
+  Vim.defineAction("prism-quit", () => _exitHandler?.());
+  Vim.defineAction("prism-cheatsheet", () => _toggleCheatsheet?.());
+
+  Vim.mapCommand("<Space>ff", "action", "prism-find-file", {}, { context: "normal" });
+  Vim.mapCommand("<Space>fg", "action", "prism-grep", {}, { context: "normal" });
+  Vim.mapCommand("<Space>fb", "action", "prism-buffers", {}, { context: "normal" });
+  Vim.mapCommand("<Space>fp", "action", "prism-palette", {}, { context: "normal" });
+  // <Space>w saves + returns to reader (notes-app workflow)
+  Vim.mapCommand("<Space>w", "action", "prism-save", {}, { context: "normal" });
+  Vim.mapCommand("<Space>x", "action", "prism-save", {}, { context: "normal" });
+  Vim.mapCommand("<Space>s", "action", "prism-save-only", {}, { context: "normal" });
+  Vim.mapCommand("<Space>q", "action", "prism-quit", {}, { context: "normal" });
+  Vim.mapCommand("<Space>e", "action", "prism-quit", {}, { context: "normal" });
+  Vim.mapCommand("<Space>?", "action", "prism-cheatsheet", {}, { context: "normal" });
+
+  // --- Follow wiki link under cursor ---
+  Vim.defineAction("prism-follow-wiki", (cm: any) => {
+    const view = cm.cm6 as EditorView;
+    const target = wikiLinkAt(view, view.state.selection.main.head);
+    if (target) _intentHandler?.({ type: "navigate-wiki", target });
+  });
+  Vim.mapCommand("gf", "action", "prism-follow-wiki", {}, { context: "normal" });
+  Vim.mapCommand("gd", "action", "prism-follow-wiki", {}, { context: "normal" });
+
+  // --- Jump history across files ---
+  Vim.defineAction("prism-jump-back", () => _intentHandler?.({ type: "jump-back" }));
+  Vim.defineAction("prism-jump-forward", () => _intentHandler?.({ type: "jump-forward" }));
+  Vim.mapCommand("<C-o>", "action", "prism-jump-back", {}, { context: "normal" });
+  Vim.mapCommand("<C-i>", "action", "prism-jump-forward", {}, { context: "normal" });
+
+  // --- Heading navigation ]] [[ ---
+  Vim.defineAction("prism-next-heading", (cm: any) => {
+    const view = cm.cm6 as EditorView;
+    const head = view.state.selection.main.head;
+    const doc = view.state.doc;
+    const curLine = doc.lineAt(head).number;
+    for (let i = curLine + 1; i <= doc.lines; i++) {
+      if (/^#{1,6}\s/.test(doc.line(i).text)) {
+        const ln = doc.line(i);
+        view.dispatch({ selection: { anchor: ln.from }, scrollIntoView: true });
+        return;
+      }
+    }
+  });
+  Vim.defineAction("prism-prev-heading", (cm: any) => {
+    const view = cm.cm6 as EditorView;
+    const head = view.state.selection.main.head;
+    const doc = view.state.doc;
+    const curLine = doc.lineAt(head).number;
+    for (let i = curLine - 1; i >= 1; i--) {
+      if (/^#{1,6}\s/.test(doc.line(i).text)) {
+        const ln = doc.line(i);
+        view.dispatch({ selection: { anchor: ln.from }, scrollIntoView: true });
+        return;
+      }
+    }
+  });
+  Vim.mapCommand("]]", "action", "prism-next-heading", {}, { context: "normal" });
+  Vim.mapCommand("[[", "action", "prism-prev-heading", {}, { context: "normal" });
 }
 
 // --- Syntax highlighting ---
@@ -208,6 +307,52 @@ function imagePasteHandler() {
   });
 }
 
+// --- Auto-continue lists/todos on Enter (insert mode only) ---
+
+function listContinuation() {
+  const listMatch = /^(\s*)([-*+]|\d+\.)\s(\[[ xX]\]\s)?(.*)$/;
+  return keymap.of([
+    {
+      key: "Enter",
+      run: (view) => {
+        const cm = getCM(view);
+        const vimState = (cm as any)?.state?.vim;
+        if (vimState && !vimState.insertMode) return false; // let vim handle in normal/visual
+        const head = view.state.selection.main.head;
+        const line = view.state.doc.lineAt(head);
+        const m = line.text.match(listMatch);
+        if (!m) return false;
+        const indent = m[1];
+        const bullet = m[2];
+        const todo = m[3] ?? "";
+        const rest = m[4];
+
+        // Empty list item → terminate the list
+        if (rest.trim() === "" && (todo === "" || todo.trim() === "[]" || /\[[ xX]\]/.test(todo.trim()))) {
+          view.dispatch({
+            changes: { from: line.from, to: line.to, insert: indent },
+            selection: { anchor: line.from + indent.length },
+          });
+          return true;
+        }
+
+        let nextBullet = bullet;
+        const numMatch = bullet.match(/^(\d+)\.$/);
+        if (numMatch) {
+          nextBullet = `${parseInt(numMatch[1], 10) + 1}.`;
+        }
+        const newTodo = todo ? "[ ] " : "";
+        const insert = `\n${indent}${nextBullet} ${newTodo}`;
+        view.dispatch({
+          changes: { from: head, insert },
+          selection: { anchor: head + insert.length },
+        });
+        return true;
+      },
+    },
+  ]);
+}
+
 // --- Relative line numbers ---
 
 function relativeLineNumbers(lineNo: number, state: EditorState): string {
@@ -231,6 +376,7 @@ const prismTheme = EditorView.theme({
   },
   ".cm-cursor, .cm-dropCursor": {
     borderLeftColor: "var(--prism-accent)",
+    borderLeftWidth: "2px",
   },
   ".cm-activeLine": {
     backgroundColor: "color-mix(in srgb, var(--prism-fg) 5%, transparent)",
@@ -333,7 +479,7 @@ function flattenFiles(nodes: FileNode[]): { name: string; path: string }[] {
   for (const node of nodes) {
     if (node.is_dir) {
       result.push(...flattenFiles(node.children));
-    } else {
+    } else if (node.kind === "markdown" || node.kind === "") {
       const name = node.name.replace(/\.md$/, "");
       result.push({ name, path: node.path });
     }
@@ -415,61 +561,97 @@ async function wikiLinkCompletionSource(
   }
 }
 
-export function SourceEditor({ content, filePath, scrollLine, onSave, onExit }: SourceEditorProps) {
+// --- Read current vim mode from CM instance ---
+
+function readVimMode(cm: any): VimMode {
+  const v = cm?.state?.vim;
+  if (!v) return "NORMAL";
+  if (v.insertMode) return "INSERT";
+  if (v.visualMode) {
+    if (v.visualLine) return "V-LINE";
+    if (v.visualBlock) return "V-BLOCK";
+    return "VISUAL";
+  }
+  return "NORMAL";
+}
+
+export function SourceEditor({ content, filePath, scrollLine, onSave, onExit, onModeChange, onIntent }: SourceEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onSaveRef = useRef(onSave);
   const onExitRef = useRef(onExit);
+  const onModeChangeRef = useRef(onModeChange);
+  const onIntentRef = useRef(onIntent);
   onSaveRef.current = onSave;
   onExitRef.current = onExit;
+  onModeChangeRef.current = onModeChange;
+  onIntentRef.current = onIntent;
+
+  const [showCheatsheet, setShowCheatsheet] = useState(false);
+  const [leaderSuffix, setLeaderSuffix] = useState<string | null>(null);
+  const leaderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Configure vim mappings once globally
     ensureVimConfig();
 
-    // Ex commands (re-register each mount to capture current filePath/callbacks)
-    Vim.defineEx("write", "w", (cm) => {
-      const view = (cm as { cm6: EditorView }).cm6;
-      const text = view.state.doc.toString();
-      commands.writeFile(filePath, text)
-        .then(() => onSaveRef.current(text))
-        .catch((err) => log.error("Save failed:", err));
-    });
+    // Wire global handlers (replaced each mount to keep current filePath/callbacks fresh)
+    _intentHandler = (i) => onIntentRef.current?.(i);
+    _exitHandler = () => onExitRef.current();
+    _toggleCheatsheet = () => setShowCheatsheet((v) => !v);
 
-    Vim.defineEx("quit", "q", () => {
-      onExitRef.current();
-    });
-
-    Vim.defineEx("wq", "wq", (cm) => {
-      const view = (cm as { cm6: EditorView }).cm6;
+    // One save path used by everything (ex commands, leader maps, Ctrl-S)
+    const doSave = (exitAfter: boolean) => {
+      const view = viewRef.current;
+      if (!view) return;
       const text = view.state.doc.toString();
       commands.writeFile(filePath, text)
         .then(() => {
           onSaveRef.current(text);
-          onExitRef.current();
+          if (exitAfter) onExitRef.current();
         })
         .catch((err) => log.error("Save failed:", err));
-    });
+    };
+    _saveHandler = doSave;
+
+    // Ex commands — save+exit by default since this is a notes app, not vim.
+    // `:w!` is provided for save-without-exit if needed.
+    Vim.defineEx("write", "w", () => doSave(true));
+    Vim.defineEx("wq", "wq", () => doSave(true));
+    Vim.defineEx("x", "x", () => doSave(true));
+    Vim.defineEx("quit", "q", () => onExitRef.current());
 
     const state = EditorState.create({
       doc: content,
       extensions: [
         vim({ status: true }),
-        // Block text insertion fallthrough in normal/visual mode
         EditorView.inputHandler.of((view) => {
           const cm = getCM(view);
           if (!cm) return false;
           const vimState = (cm as any).state?.vim;
           return !!(vimState && !vimState.insertMode);
         }),
+        // <C-s> universal save
+        keymap.of([
+          {
+            key: "Mod-s",
+            preventDefault: true,
+            run: () => {
+              _saveHandler?.(true);
+              return true;
+            },
+          },
+        ]),
+        listContinuation(),
         drawSelection(),
         history(),
         keymap.of(historyKeymap),
         prismTheme,
+        concealTheme,
         syntaxHighlighting(prismHighlight),
         markdown(),
+        markdownConceal,
         lineNumbers({ formatNumber: relativeLineNumbers }),
         highlightActiveLine(),
         highlightActiveLineGutter(),
@@ -504,17 +686,88 @@ export function SourceEditor({ content, filePath, scrollLine, onSave, onExit }: 
       }
     });
 
+    // Poll vim mode + leader state ~30fps. Cheap and reliable across all transitions.
+    let lastMode: VimMode = "NORMAL";
+    const tick = () => {
+      const cm = getCM(view);
+      if (cm) {
+        const m = readVimMode(cm);
+        if (m !== lastMode) {
+          lastMode = m;
+          onModeChangeRef.current?.(m);
+        }
+      }
+    };
+    const interval = window.setInterval(tick, 60);
+
+    // Listen for keystrokes to show leader hint when <Space> pressed in normal mode
+    const onKeyDown = (e: KeyboardEvent) => {
+      const cm = getCM(view);
+      if (!cm) return;
+      const mode = readVimMode(cm);
+      // `?` opens cheatsheet in normal mode regardless of vim mapping state
+      if (mode === "NORMAL" && e.key === "?" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        setShowCheatsheet((v) => !v);
+        return;
+      }
+      if (mode !== "NORMAL") {
+        if (leaderSuffix !== null) {
+          if (leaderTimerRef.current) clearTimeout(leaderTimerRef.current);
+          setLeaderSuffix(null);
+        }
+        return;
+      }
+      // Track leader sequence
+      if (e.key === " " && leaderSuffix === null) {
+        if (leaderTimerRef.current) clearTimeout(leaderTimerRef.current);
+        setLeaderSuffix("");
+        leaderTimerRef.current = setTimeout(() => setLeaderSuffix(null), 1500);
+        return;
+      }
+      if (leaderSuffix !== null) {
+        // Any key advances or terminates
+        if (e.key === "Escape") {
+          if (leaderTimerRef.current) clearTimeout(leaderTimerRef.current);
+          setLeaderSuffix(null);
+          return;
+        }
+        if (e.key.length === 1) {
+          const next = leaderSuffix + e.key;
+          // If next maps to a group, keep showing the next-level hint
+          if (next === "f" || next === "t" || next === "y" || next === "g") {
+            setLeaderSuffix(next);
+            if (leaderTimerRef.current) clearTimeout(leaderTimerRef.current);
+            leaderTimerRef.current = setTimeout(() => setLeaderSuffix(null), 1500);
+          } else {
+            // Terminal action — hide hint
+            if (leaderTimerRef.current) clearTimeout(leaderTimerRef.current);
+            setLeaderSuffix(null);
+          }
+        }
+      }
+    };
+    containerRef.current.addEventListener("keydown", onKeyDown);
+
     return () => {
+      window.clearInterval(interval);
+      containerRef.current?.removeEventListener("keydown", onKeyDown);
+      if (leaderTimerRef.current) clearTimeout(leaderTimerRef.current);
       view.destroy();
       viewRef.current = null;
     };
   }, []);
 
   return (
-    <div
-      ref={containerRef}
-      className="flex-1 overflow-hidden"
-      style={{ background: "var(--prism-bg)" }}
-    />
+    <div className="relative flex-1 overflow-hidden flex flex-col">
+      <div
+        ref={containerRef}
+        className="flex-1 overflow-hidden"
+        style={{ background: "var(--prism-bg)" }}
+      />
+      <EditorLeaderHint visible={leaderSuffix !== null} suffix={leaderSuffix ?? ""} />
+      <EditorCheatsheet visible={showCheatsheet} onClose={() => setShowCheatsheet(false)} />
+    </div>
   );
 }
